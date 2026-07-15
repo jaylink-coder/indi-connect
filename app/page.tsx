@@ -1,107 +1,114 @@
-import Link from "next/link";
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { ChurchLogo } from "./components/ChurchLogo";
 import { INDI_CONNECT_CONFIG } from "./config/indi-config";
-import { MemberDashboard } from "./components/MemberDashboard";
-import { MpesaGuideCard } from "./components/MpesaGuideCard";
 
 const impactStats = [
-  { label: "Discipleship growth", value: "1,200+" },
-  { label: "Community care reach", value: "KES 4.2M" },
-  { label: "Active home cells", value: "15" },
-  { label: "Prayer care follow-up", value: "0 unanswered" },
-];
-
-const pillars = [
-  { title: "Discipleship", description: "Bible teaching, pastoral follow-up and spiritual growth" },
-  { title: "Global Missions", description: "Mission support and kingdom outreach" },
-  { title: "NextGen Youth", description: "Youth mentorship, choir and family ministry" },
-  { title: "Community Outreach", description: "Welfare, food support and local service projects" },
+  { label: "Total Members", value: "1,200+", note: "(Washirika)" },
+  { label: "Building Funds", value: "KES 4.2M", note: "(Mĩako)" },
+  { label: "Prayer Groups", value: "15", note: "(Mahoya)" },
+  { label: "New Prayer Needs", value: "0" },
 ];
 
 export default function Home() {
+  const m = INDI_CONNECT_CONFIG.modules;
+  const router = useRouter();
+  const [memberNumber, setMemberNumber] = useState("");
+
+  const handleMemberLogin = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (memberNumber.trim()) {
+      router.push("/dashboard");
+    }
+  };
+
+  const handleLeaderLogin = () => {
+    router.push("/admin");
+  };
+
   return (
-    <main className="min-h-screen bg-[linear-gradient(135deg,#f7f8f2_0%,#ffffff_100%)] text-slate-900">
-      <section className="mx-auto flex max-w-7xl flex-col gap-10 px-6 py-16 lg:px-8">
-        <header className="flex flex-col gap-4 rounded-3xl border border-emerald-100 bg-white/80 p-8 shadow-sm backdrop-blur">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.3em]" style={{ color: INDI_CONNECT_CONFIG.ui.primaryGreen }}>
-                Church stewardship and ministry dashboard
-              </p>
-              <h1 className="mt-2 text-4xl font-black sm:text-5xl" style={{ color: INDI_CONNECT_CONFIG.ui.primaryGreen }}>
-                {INDI_CONNECT_CONFIG.name}
-              </h1>
-              <p className="mt-3 max-w-2xl text-lg text-slate-600">
-                A faith-centered operating system for parishes and dioceses to monitor discipleship, service, giving, pastoral care and project progress with clarity.
-              </p>
-            </div>
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-              <p className="font-semibold">{INDI_CONNECT_CONFIG.tagline}</p>
-              <p className="mt-1">{INDI_CONNECT_CONFIG.verse}</p>
-            </div>
-          </div>
-        </header>
+    <div className="min-h-screen bg-[#F8FAF8] text-gray-900 font-sans antialiased">
+      <div className="bg-[#02331B] px-4 py-2.5 text-center text-xs font-bold tracking-wider text-[#D4AF37] border-b border-[#D4AF37]/20">
+        {INDI_CONNECT_CONFIG.denomination}
+      </div>
 
-        <section className="grid gap-6 lg:grid-cols-[1.6fr_0.9fr]">
-          <div className="rounded-3xl border border-gray-200 bg-white p-8 shadow-sm">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.25em] text-emerald-700">Ministry snapshot</p>
-                <h2 className="text-2xl font-semibold text-slate-900">Impact portal</h2>
-              </div>
-              <div className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-800">Serving with transparency</div>
-            </div>
-            <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              {impactStats.map((stat) => (
-                <div key={stat.label} className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-                  <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
-                  <p className="mt-1 text-sm text-slate-600">{stat.label}</p>
-                </div>
-              ))}
-            </div>
-            <div className="mt-8 flex flex-wrap gap-3">
-              {pillars.map((pillar) => (
-                <div key={pillar.title} className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
-                  <p className="font-semibold text-emerald-900">{pillar.title}</p>
-                  <p className="text-sm text-emerald-700">{pillar.description}</p>
-                </div>
-              ))}
-            </div>
+      <header className="border-b border-gray-200/60 bg-white px-6 py-14 text-center shadow-sm">
+        <div className="mx-auto max-w-3xl">
+          <div className="mb-4 flex justify-center">
+            <ChurchLogo />
           </div>
-          <div className="rounded-3xl border border-gray-200 bg-slate-900 p-8 text-white shadow-sm">
-            <h2 className="text-2xl font-semibold">Pastoral care gateway</h2>
-            <p className="mt-3 text-sm text-slate-300">
-              Prayer requests, counseling support, and stewardship updates flow through one trusted pastoral channel.
+          <h1 className="text-3xl font-black tracking-tight text-[#024424] sm:text-4xl">
+            {INDI_CONNECT_CONFIG.name}
+          </h1>
+
+          <div className="mt-3 space-y-1">
+            <p className="text-base font-bold italic text-[#D4AF37]">
+              “{INDI_CONNECT_CONFIG.tagline}”
             </p>
-            <div className="mt-8 space-y-3 text-sm">
-              <div className="rounded-2xl bg-white/10 p-4">Anonymous help desk for grief, finances and marital guidance</div>
-              <div className="rounded-2xl bg-white/10 p-4">Volunteer service ticketing for ushers, media and outreach teams</div>
-              <div className="rounded-2xl bg-white/10 p-4">Automated Cess and project tracking for parish leadership</div>
-            </div>
+            <p className="text-xs font-semibold italic text-gray-400">
+              “{INDI_CONNECT_CONFIG.vernacularTagline}”
+            </p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+              {INDI_CONNECT_CONFIG.verse}
+            </p>
           </div>
-        </section>
 
-        <section className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="rounded-3xl border border-gray-200 bg-white p-8 shadow-sm">
-            <MemberDashboard />
-          </div>
-          <div className="space-y-6">
-            <div className="rounded-3xl border border-gray-200 bg-white p-8 shadow-sm">
-              <h3 className="text-xl font-semibold text-slate-900">M-Pesa payment routing</h3>
-              <p className="mt-2 text-sm text-slate-600">Members can pay into dedicated paybills for tithe, cess, operations and project funds.</p>
-              <div className="mt-6">
-                <MpesaGuideCard memberNo="AIPCA-GAT-0422" parishPaybills={{ tithe: "700000", cess: "700001", operations: "700002", projects: "700003" }} />
-              </div>
+          <p className="mx-auto mt-5 max-w-sm text-sm leading-relaxed text-gray-600">
+            {m.heroDesc}
+          </p>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-5xl px-4 py-12">
+        <h2 className="mb-6 text-center text-xs font-bold uppercase tracking-widest text-[#024424]">
+          {m.metricsTitle}
+        </h2>
+
+        <div className="mb-12 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          {impactStats.map((stat) => (
+            <div key={stat.label} className="rounded-xl border border-gray-100 bg-white p-5 text-center shadow-sm">
+              <span className="text-2xl font-black text-[#024424]">{stat.value}</span>
+              <span className="mt-1 block text-xs font-bold text-gray-500">{stat.label}</span>
+              {stat.note ? <span className="mt-1 block text-[10px] italic text-gray-400">{stat.note}</span> : null}
             </div>
-            <div className="rounded-3xl border border-gray-200 bg-white p-8 shadow-sm">
-              <h3 className="text-xl font-semibold text-slate-900">Leadership access</h3>
-              <p className="mt-2 text-sm text-slate-600">The administration panel is designed for parish clerks, bishops and headquarters oversight.</p>
-              <Link href="/api/member/dashboard-summary" className="mt-5 inline-flex rounded-full bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">
-                View member summary API
-              </Link>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <form onSubmit={handleMemberLogin} className="flex flex-col justify-between rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div>
+              <h3 className="mb-1 text-lg font-bold text-[#024424]">{m.memberLogin}</h3>
+              <p className="mb-4 text-xs text-gray-400">
+                See your giving, attendance history, and certificates.
+              </p>
+              <input
+                value={memberNumber}
+                onChange={(event) => setMemberNumber(event.target.value)}
+                type="text"
+                placeholder={m.inputPlaceholder}
+                className="mb-4 w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#024424]"
+              />
             </div>
+            <button type="submit" className="w-full rounded-lg bg-[#024424] py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#01331a]">
+              Open My Account
+            </button>
+          </form>
+
+          <div className="flex flex-col justify-between rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div>
+              <h3 className="mb-1 text-lg font-bold text-gray-900">{m.adminLogin}</h3>
+              <p className="mb-6 text-xs text-gray-400">
+                For pastors, secretaries, and treasurers to check church records and update member information.
+              </p>
+            </div>
+            <button onClick={handleLeaderLogin} className="mt-4 w-full rounded-lg border-2 border-[#024424] py-2.5 text-sm font-bold text-[#024424] transition-colors hover:bg-[#024424]/5">
+              Leader Login
+            </button>
           </div>
-        </section>
-      </section>
-    </main>
+        </div>
+      </main>
+    </div>
   );
 }

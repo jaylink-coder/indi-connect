@@ -1,0 +1,87 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum HierarchyTier {
+  LOCAL_CHURCH
+  PARISH
+  DIOCESE
+  HEADQUARTERS
+}
+
+enum FundCategory {
+  TITHE
+  CESS
+  OPERATIONS
+  PROJECT
+}
+
+model NationalHeadquarters {
+  id             String         @id @default(uuid())
+  title          String         @default("AIPCA Supreme Board - Bahati HQ")
+  archbishopName String
+  archdioceses   Archdiocese[]
+}
+
+model Archdiocese {
+  id             String               @id @default(uuid())
+  name           String
+  headquartersId String
+  headquarters   NationalHeadquarters @relation(fields: [headquartersId], references: [id])
+  dioceses       Diocese[]
+}
+
+model Diocese {
+  id            String       @id @default(uuid())
+  name          String
+  bishopName    String
+  archidId      String
+  archdiocese   Archdiocese  @relation(fields: [archidId], references: [id])
+  parishes      Parish[]
+}
+
+model Parish {
+  id                String        @id @default(uuid())
+  name              String
+  dioceseId         String
+  diocese           Diocese       @relation(fields: [dioceseId], references: [id])
+  tithePaybill      String        @default("700000")
+  cessPaybill       String        @default("700001")
+  operationsPaybill String        @default("700002")
+  projectsPaybill   String        @default("700003")
+  outposts          LocalChurch[]
+}
+
+model LocalChurch {
+  id         String   @id @default(uuid())
+  name       String
+  parishId   String
+  parish     Parish   @relation(fields: [parishId], references: [id])
+  members    Member[]
+}
+
+model Member {
+  id            String         @id @default(uuid())
+  membershipNo  String         @unique
+  name          String
+  phone         String         @unique
+  localChurchId String
+  localChurch   LocalChurch    @relation(fields: [localChurchId], references: [id])
+  contributions Contribution[]
+  createdAt     DateTime       @default(now())
+}
+
+model Contribution {
+  id             String       @id @default(uuid())
+  memberId       String
+  member         Member       @relation(fields: [memberId], references: [id])
+  amount         Decimal      @db.Decimal(10, 2)
+  category       FundCategory
+  mpesaReceiptNo String       @unique
+  dateTransacted DateTime     @default(now())
+}
