@@ -11,6 +11,7 @@ enum HierarchyTier {
   LOCAL_CHURCH
   PARISH
   DIOCESE
+  ARCHDIOCESE
   HEADQUARTERS
 }
 
@@ -88,6 +89,8 @@ model Archdiocese {
   headquartersId String
   headquarters   NationalHeadquarters @relation(fields: [headquartersId], references: [id])
   dioceses       Diocese[]
+
+  @@unique([name, headquartersId])
 }
 
 model Diocese {
@@ -97,6 +100,8 @@ model Diocese {
   archidId    String
   archdiocese Archdiocese @relation(fields: [archidId], references: [id])
   parishes    Parish[]
+
+  @@unique([name, archidId])
 }
 
 model Parish {
@@ -109,6 +114,8 @@ model Parish {
   operationsPaybill String        @default("700002")
   projectsPaybill   String        @default("700003")
   outposts          LocalChurch[]
+
+  @@unique([name, dioceseId])
 }
 
 model LocalChurch {
@@ -123,6 +130,8 @@ model LocalChurch {
   /// per member - see set-cess-target route. Null means unset - the
   /// dashboard must not invent a number or a "behind/on track" judgement.
   cessTargetAmount  Decimal?           @db.Decimal(12, 2)
+
+  @@unique([name, parishId])
 }
 
 model Member {

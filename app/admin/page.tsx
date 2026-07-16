@@ -8,6 +8,7 @@ import { AttendanceTab } from "@/components/admin/AttendanceTab";
 import { ContributionsTab } from "@/components/admin/ContributionsTab";
 import { MembersTab } from "@/components/admin/MembersTab";
 import { ProjectsTab } from "@/components/admin/ProjectsTab";
+import { RollupTab } from "@/components/admin/RollupTab";
 import { hasAccess, type PermissionMap } from "@/lib/permission-check";
 
 interface Stats {
@@ -18,7 +19,7 @@ interface Stats {
 }
 
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState<"attendance" | "contributions" | "members" | "projects">("attendance");
+  const [activeTab, setActiveTab] = useState<"attendance" | "contributions" | "members" | "projects" | "rollup">("attendance");
   const [permissions, setPermissions] = useState<PermissionMap>({});
   const [stats, setStats] = useState<Stats | null>(null);
 
@@ -72,6 +73,7 @@ export default function AdminPage() {
               { id: "contributions", label: "Contributions" },
               { id: "members", label: "Member Management" },
               { id: "projects", label: "Projects" },
+              { id: "rollup", label: "Financial Rollup" },
             ] as const
           ).map((tab) => (
             <button
@@ -109,6 +111,12 @@ export default function AdminPage() {
         {activeTab === "projects" && (
           <FrozenSection allowed={hasAccess(permissions, "admin.projects")} label="Projects & Welfare">
             <ProjectsTab />
+          </FrozenSection>
+        )}
+
+        {activeTab === "rollup" && (
+          <FrozenSection allowed={hasAccess(permissions, "admin.rollup")} label="Financial Rollup">
+            <RollupTab />
           </FrozenSection>
         )}
       </main>

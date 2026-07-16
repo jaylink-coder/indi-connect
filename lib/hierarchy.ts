@@ -74,6 +74,14 @@ export async function getLocalChurchIdsInScope(tier: HierarchyTier, scopeId: str
       return churches.map((c) => c.id);
     }
 
+    case "ARCHDIOCESE": {
+      const churches = await prisma.localChurch.findMany({
+        where: { parish: { diocese: { archidId: scopeId } } },
+        select: { id: true },
+      });
+      return churches.map((c) => c.id);
+    }
+
     case "HEADQUARTERS": {
       const churches = await prisma.localChurch.findMany({
         where: { parish: { diocese: { archdiocese: { headquartersId: scopeId } } } },
