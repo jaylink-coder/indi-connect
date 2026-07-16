@@ -23,6 +23,7 @@ function PinInput({
         inputMode="numeric"
         autoComplete="off"
         placeholder="0000"
+        style={{ WebkitTextSecurity: "disc", textSecurity: "disc" } as React.CSSProperties}
         className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-center text-lg font-mono tracking-[0.5em] focus:outline-none focus:ring-2 focus:ring-[#024424]"
       />
     </div>

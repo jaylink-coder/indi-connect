@@ -89,6 +89,7 @@ export default function LoginPage() {
           inputMode="numeric"
           autoComplete="off"
           placeholder="4-digit PIN"
+          style={{ WebkitTextSecurity: "disc", textSecurity: "disc" } as React.CSSProperties}
           className="mb-3 w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-center text-lg font-mono tracking-[0.5em] focus:outline-none focus:ring-2 focus:ring-[#024424]"
         />
 
