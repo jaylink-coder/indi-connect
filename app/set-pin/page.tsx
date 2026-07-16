@@ -19,12 +19,11 @@ function PinInput({
       <input
         value={value}
         onChange={(event) => onChange(event.target.value.replace(/\D/g, "").slice(0, 4))}
-        type="text"
+        type="password"
         inputMode="numeric"
-        autoComplete="off"
+        autoComplete="one-time-code"
         placeholder="0000"
-        style={{ WebkitTextSecurity: "disc", textSecurity: "disc" } as React.CSSProperties}
-        className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-center text-lg font-mono tracking-[0.5em] focus:outline-none focus:ring-2 focus:ring-[#024424]"
+        className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-center text-lg font-mono tracking-[0.5em] text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#024424]"
       />
     </div>
   );

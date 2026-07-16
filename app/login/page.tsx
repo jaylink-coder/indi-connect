@@ -61,17 +61,16 @@ export default function LoginPage() {
           onChange={(event) => setIdentifier(event.target.value)}
           type="text"
           placeholder="e.g. AIPCA-GAT-0422"
-          className="mb-3 w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#024424]"
+          className="mb-3 w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm font-mono text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#024424]"
         />
         <input
           value={pin}
           onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 4))}
-          type="text"
+          type="password"
           inputMode="numeric"
-          autoComplete="off"
+          autoComplete="one-time-code"
           placeholder="4-digit PIN"
-          style={{ WebkitTextSecurity: "disc", textSecurity: "disc" } as React.CSSProperties}
-          className="mb-3 w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-center text-lg font-mono tracking-[0.5em] focus:outline-none focus:ring-2 focus:ring-[#024424]"
+          className="mb-3 w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-center text-lg font-mono tracking-[0.5em] text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#024424]"
         />
 
         {status === "invalid" && (

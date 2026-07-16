@@ -97,12 +97,11 @@ export function AdminPadlock({ isLeader }: { isLeader: boolean }) {
               ref={inputRef}
               value={pin}
               onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 4))}
-              type="text"
+              type="password"
               inputMode="numeric"
-              autoComplete="off"
+              autoComplete="one-time-code"
               placeholder="PIN"
-              style={{ WebkitTextSecurity: "disc", textSecurity: "disc" } as React.CSSProperties}
-              className="mb-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-center text-base font-mono tracking-[0.5em] focus:outline-none focus:ring-2 focus:ring-[#024424]"
+              className="mb-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-center text-base font-mono tracking-[0.5em] text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#024424]"
             />
             {error && <p className="mb-2 text-xs text-[#B22222]">{error}</p>}
             <button
