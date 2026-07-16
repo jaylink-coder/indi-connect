@@ -55,3 +55,6 @@ crawler/current.txt
 # claude code tooling (not app code)
 .agents/
 .claude/
+
+.vercel
+.env*
