@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { Show, SignInButton, UserButton } from "@clerk/nextjs";
 import { HandCoins, CalendarCheck2, TrendingUp, Phone, Mail, MapPin, Globe, ArrowRight } from "lucide-react";
 import { ChurchLogo } from "./components/ChurchLogo";
+import { AIPCASeal } from "./components/AIPCASeal";
+import { CrossGlyph } from "./components/CrossGlyph";
 import { INDI_CONNECT_CONFIG } from "./config/indi-config";
 
 function CrossBand({ tone = "dark" }: { tone?: "dark" | "light" }) {
@@ -77,13 +79,11 @@ export default function Home() {
           }}
         />
         <svg
-          viewBox="0 0 200 200"
-          className="pointer-events-none absolute left-1/2 top-1/2 h-[34rem] w-[34rem] -translate-x-1/2 -translate-y-1/2 text-[#D4AF37] opacity-[0.05]"
-          fill="none"
+          viewBox="0 0 100 150"
+          className="pointer-events-none absolute left-1/2 top-1/2 h-[34rem] w-[22.7rem] -translate-x-1/2 -translate-y-1/2 opacity-[0.06]"
           aria-hidden="true"
         >
-          <path d="M100 10V190" stroke="currentColor" strokeWidth="14" strokeLinecap="round" />
-          <path d="M40 62H160" stroke="currentColor" strokeWidth="14" strokeLinecap="round" />
+          <CrossGlyph fill="#D4AF37" />
         </svg>
         <div className="relative mx-auto max-w-3xl">
           <div className="mb-6 flex justify-center">
@@ -180,9 +180,7 @@ export default function Home() {
               </a>
             </div>
             <div className="flex justify-center">
-              <div className="flex h-56 w-56 items-center justify-center rounded-full border-4 border-[#D4AF37]/30 bg-[#024424]/5">
-                <ChurchLogo showText={false} className="scale-[2.2]" />
-              </div>
+              <AIPCASeal size={240} className="drop-shadow-md" />
             </div>
           </div>
         </section>
@@ -234,7 +232,7 @@ export default function Home() {
       <footer className="bg-[#02331B] px-4 py-12 text-white/80">
         <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 sm:grid-cols-3">
           <div>
-            <ChurchLogo />
+            <ChurchLogo tone="dark" />
             <p className="mt-3 text-xs leading-relaxed text-white/50">
               {INDI_CONNECT_CONFIG.denomination}
             </p>
