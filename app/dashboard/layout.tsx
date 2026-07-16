@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
+import { getCurrentMemberId } from "@/lib/session";
 
 /**
  * Catches anyone who reaches /dashboard directly (bookmark, back button)
@@ -10,10 +10,10 @@ import { prisma } from "@/lib/db";
  * backstop so it can't be skipped.
  */
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
-  const { userId } = await auth();
-  if (!userId) redirect("/login");
+  const memberId = await getCurrentMemberId();
+  if (!memberId) redirect("/login");
 
-  const member = await prisma.member.findUnique({ where: { clerkUserId: userId }, select: { pinMustChange: true } });
+  const member = await prisma.member.findUnique({ where: { id: memberId }, select: { pinMustChange: true } });
   if (member?.pinMustChange) redirect("/set-pin");
 
   return <>{children}</>;

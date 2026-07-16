@@ -1,17 +1,17 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { verifyPin, hashPin, isValidPinFormat } from "@/lib/pin";
+import { getCurrentMemberId } from "@/lib/session";
 
 /** Lets a signed-in member set their own PIN - required once (see pinMustChange), reusable any time after. */
 export async function POST(request: Request) {
-  const { userId } = await auth();
-  if (!userId) {
+  const memberId = await getCurrentMemberId();
+  if (!memberId) {
     return NextResponse.json({ status: "not_signed_in" as const }, { status: 401 });
   }
 
-  const member = await prisma.member.findUnique({ where: { clerkUserId: userId } });
+  const member = await prisma.member.findUnique({ where: { id: memberId } });
   if (!member || !member.pinHash) {
     return NextResponse.json({ status: "not_signed_in" as const }, { status: 403 });
   }

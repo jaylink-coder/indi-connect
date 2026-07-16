@@ -1,24 +1,24 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { getMemberAccess, hasAccess } from "@/lib/permissions";
 import { getScopedLocalChurchIds } from "@/lib/hierarchy";
+import { getCurrentMemberId } from "@/lib/session";
 import type { Prisma } from "@prisma/client";
 
 /** Backs the admin Contributions tab - the church ledger, gated on "admin.contributions" and scoped to the caller's own managed local churches. */
 export async function GET(request: Request) {
-  const { userId } = await auth();
-  if (!userId) {
+  const memberId = await getCurrentMemberId();
+  if (!memberId) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   }
 
-  const caller = await prisma.member.findUnique({ where: { clerkUserId: userId }, select: { id: true } });
+  const caller = await prisma.member.findUnique({ where: { id: memberId }, select: { id: true } });
   if (!caller) {
     return NextResponse.json({ error: "No membership record is linked to this account" }, { status: 403 });
   }
 
-  const access = await getMemberAccess(userId);
+  const access = await getMemberAccess(memberId);
   if (!access || !hasAccess(access.permissions, "admin.contributions")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

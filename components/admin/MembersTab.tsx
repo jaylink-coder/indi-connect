@@ -6,7 +6,7 @@ interface MemberRow {
   id: string;
   membershipNo: string;
   name: string;
-  clerkUserId: string | null;
+  hasLogin: boolean;
   localChurch: { name: string; parish: { id: string; name: string } };
 }
 
@@ -37,7 +37,7 @@ export function MembersTab() {
   }, [members, search]);
 
   const handleSetPin = async (member: MemberRow) => {
-    const confirmMsg = member.clerkUserId
+    const confirmMsg = member.hasLogin
       ? `Reset ${member.name}'s PIN? Their old PIN will stop working.`
       : `Set up a login for ${member.name}?`;
     if (!window.confirm(confirmMsg)) return;
@@ -54,7 +54,7 @@ export function MembersTab() {
     }
 
     setRevealedPin({ memberId: member.id, pin: body.pin });
-    setMembers((prev) => prev?.map((m) => (m.id === member.id ? { ...m, clerkUserId: "set" } : m)) ?? prev);
+    setMembers((prev) => prev?.map((m) => (m.id === member.id ? { ...m, hasLogin: true } : m)) ?? prev);
   };
 
   return (
@@ -96,10 +96,10 @@ export function MembersTab() {
                   <td className="px-4 py-3">
                     <span
                       className={`rounded-full px-2.5 py-1 text-xs font-bold ${
-                        m.clerkUserId ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"
+                        m.hasLogin ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"
                       }`}
                     >
-                      {m.clerkUserId ? "Set up" : "No login yet"}
+                      {m.hasLogin ? "Set up" : "No login yet"}
                     </span>
                   </td>
                   <td className="px-4 py-3">
@@ -113,7 +113,7 @@ export function MembersTab() {
                         disabled={busyId === m.id}
                         className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-bold text-[#024424] transition-colors hover:bg-gray-50 disabled:opacity-50"
                       >
-                        {busyId === m.id ? "Working..." : m.clerkUserId ? "Reset PIN" : "Set Up Login"}
+                        {busyId === m.id ? "Working..." : m.hasLogin ? "Reset PIN" : "Set Up Login"}
                       </button>
                     )}
                   </td>

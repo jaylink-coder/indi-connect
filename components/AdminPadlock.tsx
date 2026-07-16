@@ -8,10 +8,9 @@ import { Lock } from "lucide-react";
  * Every signed-in member sees this. Members without a leadership
  * MemberPosition get a frozen (visible, disabled) padlock. Leaders get a
  * clickable one that opens an inline PIN re-entry panel - re-proving it's
- * really them before /admin opens - rather than a full-page redirect.
- * Members never see or use a real Clerk password (login is PIN-only, see
- * /api/auth/pin-login), so this step-up runs on our own PIN check instead
- * of Clerk's reverification.
+ * really them before /admin opens - rather than a full-page redirect. This
+ * step-up runs on our own PIN check (see /api/auth/reverify-pin), the same
+ * system that backs regular sign-in (see /api/auth/pin-login).
  */
 export function AdminPadlock({ isLeader }: { isLeader: boolean }) {
   const router = useRouter();

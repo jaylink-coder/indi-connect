@@ -126,7 +126,6 @@ model Member {
   idNumber                String?          @unique
   name                    String
   phone                   String           @unique
-  clerkUserId             String?          @unique
   pinHash                 String?
   pinSetAt                DateTime?
   pinMustChange           Boolean          @default(true)

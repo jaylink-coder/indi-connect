@@ -2,15 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useSignIn } from "@clerk/nextjs";
-import { ChurchLogo } from "../../components/ChurchLogo";
-import { INDI_CONNECT_CONFIG } from "../../config/indi-config";
+import { ChurchLogo } from "../components/ChurchLogo";
+import { INDI_CONNECT_CONFIG } from "../config/indi-config";
 
 type Status = "idle" | "invalid" | "locked" | "error";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { signIn } = useSignIn();
 
   const [identifier, setIdentifier] = useState("");
   const [pin, setPin] = useState("");
@@ -34,30 +32,13 @@ export default function LoginPage() {
       setBusy(false);
       return;
     }
-    if (body.status !== "ok" || !signIn) {
+    if (body.status !== "ok") {
       setStatus("invalid");
       setBusy(false);
       return;
     }
 
-    const { error } = await signIn.ticket({ ticket: body.ticket });
-    if (error || signIn.status !== "complete") {
-      setStatus("error");
-      setBusy(false);
-      return;
-    }
-
-    const destination = body.mustChangePin ? "/set-pin" : "/dashboard";
-    await signIn.finalize({
-      navigate: async ({ decorateUrl }) => {
-        const url = decorateUrl(destination);
-        if (url.startsWith("http")) {
-          window.location.href = url;
-        } else {
-          router.push(url);
-        }
-      },
-    });
+    router.push(body.mustChangePin ? "/set-pin" : "/dashboard");
   };
 
   return (

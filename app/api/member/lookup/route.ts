@@ -1,8 +1,8 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { toMpesaPhone } from "@/lib/phone";
+import { getCurrentMemberId } from "@/lib/session";
 
 /**
  * Resolves a Church No./National ID, OR a phone number, to a display name -
@@ -13,8 +13,8 @@ import { toMpesaPhone } from "@/lib/phone";
  * financial data.
  */
 export async function GET(request: Request) {
-  const { userId } = await auth();
-  if (!userId) {
+  const memberId = await getCurrentMemberId();
+  if (!memberId) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   }
 

@@ -1,9 +1,9 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { initiateSTKPush } from "@/lib/mpesa";
 import { toMpesaPhone } from "@/lib/phone";
+import { getCurrentMemberId } from "@/lib/session";
 import type { FundCategory } from "@prisma/client";
 
 const CATEGORIES: FundCategory[] = ["TITHE", "CESS", "OPERATIONS", "PROJECT", "WELFARE", "CALL_REGISTRY", "SADAKA"];
@@ -19,12 +19,12 @@ const CATEGORIES: FundCategory[] = ["TITHE", "CESS", "OPERATIONS", "PROJECT", "W
  * here for the callback to notify correctly.
  */
 export async function POST(request: Request) {
-  const { userId } = await auth();
-  if (!userId) {
+  const memberId = await getCurrentMemberId();
+  if (!memberId) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   }
 
-  const operator = await prisma.member.findUnique({ where: { clerkUserId: userId } });
+  const operator = await prisma.member.findUnique({ where: { id: memberId } });
   if (!operator) {
     return NextResponse.json({ error: "No membership record is linked to this account" }, { status: 403 });
   }

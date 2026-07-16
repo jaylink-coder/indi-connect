@@ -1,29 +1,29 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { getMemberAccess, hasAccess } from "@/lib/permissions";
 import { getScopedLocalChurchIds } from "@/lib/hierarchy";
+import { getCurrentMemberId } from "@/lib/session";
 
 /**
  * Real counterparts to the admin panel's old hardcoded parishStats.
- * "Active" members are those who've activated a digital account
- * (clerkUserId set) - not an invented engagement metric. "Monthly Tithe"
- * is TITHE contributions dated within the current calendar month across
- * the caller's admin.members scope.
+ * "Active" members are those who've had a login set up (pinHash set) - not
+ * an invented engagement metric. "Monthly Tithe" is TITHE contributions
+ * dated within the current calendar month across the caller's
+ * admin.members scope.
  */
 export async function GET() {
-  const { userId } = await auth();
-  if (!userId) {
+  const memberId = await getCurrentMemberId();
+  if (!memberId) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   }
 
-  const member = await prisma.member.findUnique({ where: { clerkUserId: userId }, select: { id: true } });
+  const member = await prisma.member.findUnique({ where: { id: memberId }, select: { id: true } });
   if (!member) {
     return NextResponse.json({ error: "No membership record is linked to this account" }, { status: 403 });
   }
 
-  const access = await getMemberAccess(userId);
+  const access = await getMemberAccess(memberId);
   if (!access || !hasAccess(access.permissions, "admin.members")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -38,7 +38,7 @@ export async function GET() {
 
   const [totalMembers, activeMembers, monthlyTitheAgg, projectFundsAgg] = await Promise.all([
     prisma.member.count({ where: { localChurchId: { in: localChurchIds } } }),
-    prisma.member.count({ where: { localChurchId: { in: localChurchIds }, clerkUserId: { not: null } } }),
+    prisma.member.count({ where: { localChurchId: { in: localChurchIds }, pinHash: { not: null } } }),
     prisma.contribution.aggregate({
       where: {
         category: "TITHE",

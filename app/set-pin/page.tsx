@@ -2,7 +2,7 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChurchLogo } from "../../components/ChurchLogo";
+import { ChurchLogo } from "../components/ChurchLogo";
 
 function PinInput({
   label,

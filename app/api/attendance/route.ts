@@ -1,19 +1,19 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { getMemberAccess, hasAccess } from "@/lib/permissions";
 import { getScopedLocalChurchIds } from "@/lib/hierarchy";
+import { getCurrentMemberId } from "@/lib/session";
 import type { AttendanceStatus } from "@prisma/client";
 
 async function resolveCaller() {
-  const { userId } = await auth();
-  if (!userId) return null;
+  const memberId = await getCurrentMemberId();
+  if (!memberId) return null;
 
-  const member = await prisma.member.findUnique({ where: { clerkUserId: userId }, select: { id: true } });
+  const member = await prisma.member.findUnique({ where: { id: memberId }, select: { id: true } });
   if (!member) return null;
 
-  const access = await getMemberAccess(userId);
+  const access = await getMemberAccess(memberId);
   return { memberId: member.id, access };
 }
 

@@ -1,9 +1,9 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { getMemberScopeChain, getScopesForPermission } from "@/lib/hierarchy";
 import { getMemberAccess, hasAccess } from "@/lib/permissions";
+import { getCurrentMemberId } from "@/lib/session";
 import type { HierarchyTier } from "@prisma/client";
 
 /**
@@ -14,18 +14,18 @@ import type { HierarchyTier } from "@prisma/client";
  * labels that grant "Projects & Welfare" together.
  */
 export async function GET(request: Request) {
-  const { userId } = await auth();
+  const memberId = await getCurrentMemberId();
   const { searchParams } = new URL(request.url);
   const manage = searchParams.get("manage") === "1";
 
   let scopeFilter: { scopeTier: HierarchyTier; scopeId: string }[] | undefined;
   let statusFilter: { status: "OPEN" } | Record<string, never> = { status: "OPEN" };
 
-  if (userId) {
-    const member = await prisma.member.findUnique({ where: { clerkUserId: userId }, select: { id: true } });
+  if (memberId) {
+    const member = await prisma.member.findUnique({ where: { id: memberId }, select: { id: true } });
     if (member) {
       if (manage) {
-        const access = await getMemberAccess(userId);
+        const access = await getMemberAccess(memberId);
         if (access && hasAccess(access.permissions, "admin.projects")) {
           const scopes = await getScopesForPermission(member.id, "admin.projects");
           scopeFilter = scopes.map((ref) => ({ scopeTier: ref.tier, scopeId: ref.id }));
@@ -67,17 +67,17 @@ export async function GET(request: Request) {
 
 /** Creates a welfare case under one of the caller's own admin.projects scopes. */
 export async function POST(request: Request) {
-  const { userId } = await auth();
-  if (!userId) {
+  const memberId = await getCurrentMemberId();
+  if (!memberId) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   }
 
-  const member = await prisma.member.findUnique({ where: { clerkUserId: userId }, select: { id: true } });
+  const member = await prisma.member.findUnique({ where: { id: memberId }, select: { id: true } });
   if (!member) {
     return NextResponse.json({ error: "No membership record is linked to this account" }, { status: 403 });
   }
 
-  const access = await getMemberAccess(userId);
+  const access = await getMemberAccess(memberId);
   if (!access || !hasAccess(access.permissions, "admin.projects", "EDIT")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

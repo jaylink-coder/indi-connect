@@ -1,9 +1,9 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { getMemberAccess, hasAccess } from "@/lib/permissions";
 import { recordDirectContribution } from "@/lib/payments";
+import { getCurrentMemberId } from "@/lib/session";
 import type { FundCategory } from "@prisma/client";
 
 const CATEGORIES: FundCategory[] = ["TITHE", "CESS", "OPERATIONS", "PROJECT", "WELFARE", "CALL_REGISTRY", "SADAKA"];
@@ -16,12 +16,12 @@ const CATEGORIES: FundCategory[] = ["TITHE", "CESS", "OPERATIONS", "PROJECT", "W
  * Call Registry need a real member since they feed a personal balance).
  */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { userId } = await auth();
-  if (!userId) {
+  const memberId = await getCurrentMemberId();
+  if (!memberId) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   }
 
-  const access = await getMemberAccess(userId);
+  const access = await getMemberAccess(memberId);
   if (!access || !hasAccess(access.permissions, "admin.contributions", "EDIT")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

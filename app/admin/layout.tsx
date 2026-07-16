@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import { auth } from "@clerk/nextjs/server";
+import { getCurrentMemberId } from "@/lib/session";
 import { getMemberAccess } from "@/lib/permissions";
 import { verifyAdminStepUp, ADMIN_STEP_UP_COOKIE } from "@/lib/adminStepUp";
 
@@ -14,15 +14,15 @@ import { verifyAdminStepUp, ADMIN_STEP_UP_COOKIE } from "@/lib/adminStepUp";
  * rendering.
  */
 export default async function AdminLayout({ children }: { children: ReactNode }) {
-  const { userId } = await auth();
-  if (!userId) redirect("/login");
+  const memberId = await getCurrentMemberId();
+  if (!memberId) redirect("/login");
 
-  const access = await getMemberAccess(userId);
+  const access = await getMemberAccess(memberId);
   if (!access || !access.isLeader) redirect("/dashboard?adminDenied=1");
 
   const cookieStore = await cookies();
   const stepUpToken = cookieStore.get(ADMIN_STEP_UP_COOKIE)?.value;
-  if (!verifyAdminStepUp(userId, stepUpToken)) {
+  if (!verifyAdminStepUp(memberId, stepUpToken)) {
     redirect("/dashboard?unlockAdmin=1");
   }
 

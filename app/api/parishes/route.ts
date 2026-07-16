@@ -1,17 +1,17 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
 import { getMemberAccess, hasAccess } from "@/lib/permissions";
+import { getCurrentMemberId } from "@/lib/session";
 
 /** Backs the (not yet built) admin structural view of the hierarchy - gated on "admin.members" like the member registry. */
 export async function GET() {
-  const { userId } = await auth();
-  if (!userId) {
+  const memberId = await getCurrentMemberId();
+  if (!memberId) {
     return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   }
 
-  const access = await getMemberAccess(userId);
+  const access = await getMemberAccess(memberId);
   if (!access || !hasAccess(access.permissions, "admin.members")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

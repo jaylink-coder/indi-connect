@@ -11,17 +11,16 @@ export interface MemberAccess {
 }
 
 /**
- * Resolves a signed-in Clerk identity to its church Member row and the full
- * VIEW/EDIT permission map derived from every current (endDate: null)
- * MemberPosition it holds. A key missing from `permissions` means frozen -
- * callers should never need a per-role branch, just a map lookup via
- * `hasAccess`.
+ * Resolves a signed-in member's own id to the full VIEW/EDIT permission map
+ * derived from every current (endDate: null) MemberPosition it holds. A key
+ * missing from `permissions` means frozen - callers should never need a
+ * per-role branch, just a map lookup via `hasAccess`.
  */
-export async function getMemberAccess(clerkUserId: string | null | undefined): Promise<MemberAccess | null> {
-  if (!clerkUserId) return null;
+export async function getMemberAccess(memberId: string | null | undefined): Promise<MemberAccess | null> {
+  if (!memberId) return null;
 
   const member = await prisma.member.findUnique({
-    where: { clerkUserId },
+    where: { id: memberId },
     select: {
       id: true,
       positions: {

@@ -158,8 +158,8 @@ async function main() {
 
   // 8. Seed a Leader test Member holding the Parish Chairman role at the
   // seeded parish - used to verify the padlock unlocks /admin after
-  // reverification. Link `clerkUserId` to a real signed-up Clerk account to
-  // test end-to-end (see README for how).
+  // reverification. Set up a login for this member (see
+  // /api/admin/members/[id]/set-pin) to test end-to-end.
   const leader = await prisma.member.upsert({
     where: { membershipNo: "AIPCA-GAT-0001" },
     update: {},
