@@ -29,8 +29,10 @@ export function AdminPadlock({ isLeader }: { isLeader: boolean }) {
         setOpen(false);
       }
     }
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => document.removeEventListener("mousedown", handleOutsideClick);
+    // "click" (not "mousedown") - mousedown fires before touch/tap events finish
+    // resolving on mobile, which could close the panel the instant it opens.
+    document.addEventListener("click", handleOutsideClick);
+    return () => document.removeEventListener("click", handleOutsideClick);
   }, [open]);
 
   useEffect(() => {
@@ -96,8 +98,9 @@ export function AdminPadlock({ isLeader }: { isLeader: boolean }) {
               ref={inputRef}
               value={pin}
               onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 4))}
-              type="password"
+              type="text"
               inputMode="numeric"
+              autoComplete="off"
               placeholder="PIN"
               className="mb-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-center text-base font-mono tracking-[0.5em] focus:outline-none focus:ring-2 focus:ring-[#024424]"
             />
