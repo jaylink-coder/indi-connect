@@ -52,10 +52,12 @@ export default function LoginPage() {
 
       <form onSubmit={handleSubmit} className="w-full max-w-sm rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
         <h1 className="mb-1 text-lg font-bold text-[#024424]">Sign In</h1>
-        <p className="mb-4 text-xs text-gray-500">
-          Enter your Church Number, Phone Number, or National ID, and your PIN.
-        </p>
+        <p className="mb-4 text-xs text-gray-500">Please ensure all mandatory fields are filled correctly.</p>
 
+        <label className="mb-1 block text-xs font-semibold text-gray-600">
+          Church Membership No. <span className="text-[#B22222]">*</span>{" "}
+          <span className="font-normal text-gray-400">(or Phone / National ID)</span>
+        </label>
         <input
           value={identifier}
           onChange={(event) => setIdentifier(event.target.value)}
@@ -63,6 +65,10 @@ export default function LoginPage() {
           placeholder="e.g. AIPCA-GAT-0422"
           className="mb-3 w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm font-mono text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#024424]"
         />
+
+        <label className="mb-1 block text-xs font-semibold text-gray-600">
+          PIN <span className="text-[#B22222]">*</span> <span className="font-normal text-gray-400">(4 digits)</span>
+        </label>
         <input
           value={pin}
           onChange={(event) => setPin(event.target.value.replace(/\D/g, "").slice(0, 4))}
