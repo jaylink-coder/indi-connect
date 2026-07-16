@@ -1,24 +1,28 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { auth } from "@clerk/nextjs/server";
 import { getMemberAccess } from "@/lib/permissions";
+import { verifyAdminStepUp, ADMIN_STEP_UP_COOKIE } from "@/lib/adminStepUp";
 
 /**
  * The padlock (see components/AdminPadlock.tsx) is the sanctioned way in -
- * clicking it performs a fresh Clerk reverification before routing here.
- * This layout re-checks both the leadership permission and the
- * reverification freshness server-side, so a bookmarked /admin URL (or a
- * stale session past Clerk's 10-minute reverification window) bounces back
- * to the dashboard instead of silently rendering.
+ * clicking it re-checks the leader's PIN before routing here. This layout
+ * re-checks both the leadership permission and the step-up cookie
+ * server-side, so a bookmarked /admin URL (or a stale step-up past its
+ * 10-minute window) bounces back to the dashboard instead of silently
+ * rendering.
  */
 export default async function AdminLayout({ children }: { children: ReactNode }) {
-  const { userId, has } = await auth();
-  if (!userId) redirect("/");
+  const { userId } = await auth();
+  if (!userId) redirect("/login");
 
   const access = await getMemberAccess(userId);
   if (!access || !access.isLeader) redirect("/dashboard?adminDenied=1");
 
-  if (!has({ reverification: "strict" })) {
+  const cookieStore = await cookies();
+  const stepUpToken = cookieStore.get(ADMIN_STEP_UP_COOKIE)?.value;
+  if (!verifyAdminStepUp(userId, stepUpToken)) {
     redirect("/dashboard?unlockAdmin=1");
   }
 

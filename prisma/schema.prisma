@@ -127,10 +127,11 @@ model Member {
   name                    String
   phone                   String           @unique
   clerkUserId             String?          @unique
-  activationCodeHash      String?
-  activationCodeSentAt    DateTime?
-  activationCodeExpiresAt DateTime?
-  activationAttempts      Int              @default(0)
+  pinHash                 String?
+  pinSetAt                DateTime?
+  pinMustChange           Boolean          @default(true)
+  pinFailedAttempts       Int              @default(0)
+  pinLockedUntil          DateTime?
   localChurchId           String
   localChurch             LocalChurch      @relation(fields: [localChurchId], references: [id])
   contributions           Contribution[]   @relation("ContributionPayee")

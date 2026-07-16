@@ -1,9 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Show, SignInButton, UserButton } from "@clerk/nextjs";
+import Link from "next/link";
+import { Show } from "@clerk/nextjs";
 import { HandCoins, CalendarCheck2, TrendingUp, Phone, Mail, MapPin, Globe, ArrowRight } from "lucide-react";
 import { ChurchLogo } from "./components/ChurchLogo";
+import { AccountMenu } from "@/components/AccountMenu";
 import { AIPCASeal } from "./components/AIPCASeal";
 import { CrossGlyph } from "./components/CrossGlyph";
 import { INDI_CONNECT_CONFIG } from "./config/indi-config";
@@ -58,14 +60,15 @@ export default function Home() {
         <span className="flex-1 text-center">{INDI_CONNECT_CONFIG.denomination}</span>
         <div className="flex flex-1 items-center justify-end gap-2">
           <Show when="signed-out">
-            <SignInButton mode="modal">
-              <button className="rounded-full border border-[#D4AF37]/50 px-3 py-1 text-[10px] font-bold text-[#D4AF37] hover:bg-[#D4AF37]/10">
-                Sign In
-              </button>
-            </SignInButton>
+            <Link
+              href="/login"
+              className="rounded-full border border-[#D4AF37]/50 px-3 py-1 text-[10px] font-bold text-[#D4AF37] hover:bg-[#D4AF37]/10"
+            >
+              Sign In
+            </Link>
           </Show>
           <Show when="signed-in">
-            <UserButton />
+            <AccountMenu />
           </Show>
         </div>
       </div>
@@ -111,18 +114,13 @@ export default function Home() {
             {m.heroDesc}
           </p>
 
-          <div className="mx-auto mt-8 flex max-w-sm flex-col gap-3 sm:flex-row">
+          <div className="mx-auto mt-8 max-w-xs">
             <button
-              onClick={() => router.push("/activate")}
-              className="flex-1 rounded-lg bg-[#D4AF37] py-3 text-sm font-bold text-[#02331B] shadow-md transition-colors hover:bg-[#c4a02f]"
+              onClick={() => router.push("/login")}
+              className="w-full rounded-lg bg-[#D4AF37] py-3 text-sm font-bold text-[#02331B] shadow-md transition-colors hover:bg-[#c4a02f]"
             >
-              First Time? Activate My Account
+              Sign In
             </button>
-            <SignInButton mode="modal">
-              <button className="flex-1 rounded-lg border-2 border-white/40 py-3 text-sm font-bold text-white transition-colors hover:bg-white/10">
-                Already Activated? Sign In
-              </button>
-            </SignInButton>
           </div>
         </div>
       </header>
@@ -196,16 +194,14 @@ export default function Home() {
               </div>
               <div className="space-y-2">
                 <button
-                  onClick={() => router.push("/activate")}
+                  onClick={() => router.push("/login")}
                   className="w-full rounded-lg bg-[#024424] py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#01331a]"
                 >
-                  First Time? Activate My Account
+                  Sign In
                 </button>
-                <SignInButton mode="modal">
-                  <button className="w-full rounded-lg border border-gray-200 py-2.5 text-sm font-bold text-[#024424] transition-colors hover:bg-gray-50">
-                    Already Activated? Sign In
-                  </button>
-                </SignInButton>
+                <p className="text-center text-[11px] text-gray-400">
+                  No login yet? Ask your church leader or treasurer to set one up for you.
+                </p>
               </div>
             </div>
 

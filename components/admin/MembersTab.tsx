@@ -14,6 +14,8 @@ export function MembersTab() {
   const [members, setMembers] = useState<MemberRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [revealedPin, setRevealedPin] = useState<{ memberId: string; pin: string } | null>(null);
 
   useEffect(() => {
     fetch("/api/members")
@@ -34,6 +36,27 @@ export function MembersTab() {
     );
   }, [members, search]);
 
+  const handleSetPin = async (member: MemberRow) => {
+    const confirmMsg = member.clerkUserId
+      ? `Reset ${member.name}'s PIN? Their old PIN will stop working.`
+      : `Set up a login for ${member.name}?`;
+    if (!window.confirm(confirmMsg)) return;
+
+    setBusyId(member.id);
+    setRevealedPin(null);
+    const response = await fetch(`/api/admin/members/${member.id}/set-pin`, { method: "POST" });
+    const body = await response.json().catch(() => ({}));
+    setBusyId(null);
+
+    if (body.status !== "ok") {
+      setError(body.error || "Couldn't set up this member's login.");
+      return;
+    }
+
+    setRevealedPin({ memberId: member.id, pin: body.pin });
+    setMembers((prev) => prev?.map((m) => (m.id === member.id ? { ...m, clerkUserId: "set" } : m)) ?? prev);
+  };
+
   return (
     <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -46,7 +69,7 @@ export function MembersTab() {
         />
       </div>
 
-      {error && <p className="text-sm text-[#B22222]">{error}</p>}
+      {error && <p className="mb-3 text-sm text-[#B22222]">{error}</p>}
       {!error && !members && <p className="py-6 text-center text-sm text-gray-400">Loading...</p>}
       {members && filtered.length === 0 && <p className="py-6 text-center text-sm text-gray-400">No members found.</p>}
 
@@ -59,7 +82,8 @@ export function MembersTab() {
                 <th className="px-4 py-3">Church No.</th>
                 <th className="px-4 py-3">Local Church</th>
                 <th className="px-4 py-3">Parish</th>
-                <th className="px-4 py-3">Account</th>
+                <th className="px-4 py-3">Login</th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
@@ -75,8 +99,23 @@ export function MembersTab() {
                         m.clerkUserId ? "bg-green-50 text-green-700" : "bg-gray-100 text-gray-500"
                       }`}
                     >
-                      {m.clerkUserId ? "Activated" : "Not activated"}
+                      {m.clerkUserId ? "Set up" : "No login yet"}
                     </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {revealedPin?.memberId === m.id ? (
+                      <span className="font-mono text-xs font-bold text-[#024424]">
+                        Starting PIN: {revealedPin.pin}
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => handleSetPin(m)}
+                        disabled={busyId === m.id}
+                        className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-bold text-[#024424] transition-colors hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        {busyId === m.id ? "Working..." : m.clerkUserId ? "Reset PIN" : "Set Up Login"}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
