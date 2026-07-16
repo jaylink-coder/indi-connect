@@ -118,6 +118,11 @@ model LocalChurch {
   parish            Parish             @relation(fields: [parishId], references: [id])
   members           Member[]
   attendanceRecords AttendanceRecord[]
+  /// The Cess quota for every member of this local church, due MONTHLY.
+  /// Set once per congregation (quotas vary by location), not negotiated
+  /// per member - see set-cess-target route. Null means unset - the
+  /// dashboard must not invent a number or a "behind/on track" judgement.
+  cessTargetAmount  Decimal?           @db.Decimal(12, 2)
 }
 
 model Member {

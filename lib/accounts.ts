@@ -22,6 +22,8 @@ export interface AccountSummary {
   };
   totalContributed: number;
   byCategory: Record<string, number>;
+  cessTarget: number | null;
+  cessThisMonth: number;
   recentContributions: Array<{
     id: string;
     type: string;
@@ -64,6 +66,14 @@ export async function getMemberAccountSummary(memberId: string): Promise<Account
     byCategory[c.category] = (byCategory[c.category] ?? 0) + Number(c.amount);
   }
 
+  // Cess is due monthly, not as a one-time lifetime target - a member who
+  // paid up in January should not look "fully paid" forever in June.
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const cessThisMonth = contributions
+    .filter((c) => c.category === "CESS" && c.dateTransacted >= monthStart)
+    .reduce((sum, c) => sum + Number(c.amount), 0);
+
   const recentContributions = contributions.slice(0, 10).map((c) => ({
     id: c.id,
     type: CATEGORY_LABEL[c.category] ?? c.category,
@@ -103,6 +113,8 @@ export async function getMemberAccountSummary(memberId: string): Promise<Account
     },
     totalContributed,
     byCategory,
+    cessTarget: member.localChurch.cessTargetAmount ? Number(member.localChurch.cessTargetAmount) : null,
+    cessThisMonth,
     recentContributions,
     projects: projectSummaries,
   };

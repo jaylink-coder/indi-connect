@@ -8,12 +8,16 @@ import { MakePaymentDialog } from "@/components/MakePaymentDialog";
 import { INDI_CONNECT_CONFIG } from "../config/indi-config";
 import type { AccountSummary } from "@/lib/accounts";
 
-const ACCOUNT_CATEGORIES: { category: "TITHE" | "CESS" | "SADAKA" | "CALL_REGISTRY" | "OPERATIONS"; label: string }[] = [
-  { category: "TITHE", label: "Tithe (Zaka)" },
-  { category: "CESS", label: "Cess Quota" },
-  { category: "SADAKA", label: "Sadaka" },
-  { category: "CALL_REGISTRY", label: "Call Registry" },
-  { category: "OPERATIONS", label: "Church Operations" },
+// Cess Quota gets its own progress-bar treatment below (it's the one
+// category with a real, admin-assigned monthly target) - these four are
+// freewill/collective giving with no personal target to compare against,
+// so they stay as simple totals, just with an honest description of what
+// each one actually is.
+const ACCOUNT_CATEGORIES: { category: "TITHE" | "SADAKA" | "CALL_REGISTRY" | "OPERATIONS"; label: string; description: string }[] = [
+  { category: "TITHE", label: "Tithe (Zaka)", description: "Your freewill giving, traditionally a tenth of income." },
+  { category: "SADAKA", label: "Sadaka", description: "A voluntary offering, given as you're moved to." },
+  { category: "CALL_REGISTRY", label: "Call Registry", description: "Weekly payment that doubles as your attendance record." },
+  { category: "OPERATIONS", label: "Church Operations", description: "Shared fund for running the local church." },
 ];
 
 // AIPCA's founding history, sourced from the church's own published "About"
@@ -65,6 +69,71 @@ const MILESTONE_TIERS = [
     ],
   },
 ];
+
+function CessQuotaCard({ data, onPaid }: { data: AccountSummary; onPaid: () => void }) {
+  const { cessTarget, cessThisMonth } = data;
+  const monthLabel = new Date().toLocaleDateString("en-US", { month: "long" });
+
+  if (cessTarget === null) {
+    return (
+      <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-bold text-gray-700">Cess Quota</p>
+          <span className="rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-bold text-gray-500">No quota set</span>
+        </div>
+        <p className="mt-2 text-xs text-gray-400">
+          Your local church hasn&apos;t had a Cess quota assigned yet - ask your leader to set one.
+        </p>
+      </div>
+    );
+  }
+
+  const fillPercent = Math.min((cessThisMonth / cessTarget) * 100, 100);
+  const remaining = Math.max(cessTarget - cessThisMonth, 0);
+  const status =
+    cessThisMonth === 0
+      ? { label: "Not Started", classes: "bg-red-50 text-red-600" }
+      : cessThisMonth < cessTarget
+        ? { label: "In Progress", classes: "bg-amber-50 text-amber-700" }
+        : { label: "Quota Met ✓", classes: "bg-green-50 text-green-700" };
+
+  return (
+    <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-bold text-gray-700">Cess Quota - {monthLabel}</p>
+        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${status.classes}`}>{status.label}</span>
+      </div>
+      <div className="mt-3 h-3 w-full overflow-hidden rounded-full bg-gray-200">
+        <div
+          className={`h-full rounded-full transition-all ${cessThisMonth >= cessTarget ? "bg-green-600" : "bg-[#024424]"}`}
+          style={{ width: `${fillPercent}%` }}
+        />
+      </div>
+      <div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 font-mono text-xs">
+        <span className="text-gray-500">
+          Paid: <span className="font-bold text-[#024424]">KES {cessThisMonth.toLocaleString()}</span>
+        </span>
+        <span className="text-gray-500">
+          Target: <span className="font-bold text-gray-700">KES {cessTarget.toLocaleString()}</span>
+        </span>
+        <span className="text-gray-500">
+          Remaining: <span className="font-bold text-[#B22222]">KES {remaining.toLocaleString()}</span>
+        </span>
+      </div>
+      <div className="mt-3">
+        <MakePaymentDialog
+          defaultPhone={data.member.phone}
+          defaultIdentifier={data.member.membershipNo}
+          initialCategory="CESS"
+          lockCategory
+          triggerLabel="Pay Cess"
+          triggerClassName="w-full rounded-lg bg-[#024424] px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-[#01331a]"
+          onSuccess={onPaid}
+        />
+      </div>
+    </div>
+  );
+}
 
 export default function MemberDashboardPage() {
   const router = useRouter();
@@ -126,13 +195,17 @@ export default function MemberDashboardPage() {
         <div className="space-y-6 lg:col-span-2">
           <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
             <h3 className="mb-4 border-b pb-3 text-base font-bold text-[#024424]">My Accounts</h3>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+
+            <CessQuotaCard data={data} onPaid={loadSummary} />
+
+            <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
               {ACCOUNT_CATEGORIES.map((account) => (
                 <div key={account.category} className="rounded-lg border border-gray-100 bg-gray-50 p-4">
                   <p className="text-xs font-semibold text-gray-500">{account.label}</p>
                   <p className="mt-1 font-mono text-lg font-black text-[#024424]">
                     KES {(data.byCategory[account.category] ?? 0).toLocaleString()}
                   </p>
+                  <p className="mt-1 text-[11px] leading-snug text-gray-400">{account.description}</p>
                   <div className="mt-3">
                     <MakePaymentDialog
                       defaultPhone={data.member.phone}
