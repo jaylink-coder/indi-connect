@@ -10,14 +10,41 @@ interface MemberRow {
   localChurch: { name: string; parish: { id: string; name: string } };
 }
 
+interface LocalChurchOption {
+  id: string;
+  name: string;
+}
+
+interface MemberDossier {
+  id: string;
+  membershipNo: string;
+  name: string;
+  idNumber: string | null;
+  phone: string;
+  dateOfBirth: string | null;
+  placeOfResidence: string | null;
+  joinedAt: string | null;
+  hasLogin: boolean;
+  registeredOn: string;
+  localChurchName: string;
+  parishName: string;
+  dioceseName: string;
+  archdioceseName: string;
+  positions: { roleName: string; scopeTier: string; scopeName: string; startDate: string }[];
+  totalContributed: number;
+  recentContributions: { id: string; category: string; amount: number; date: string; receipt: string }[];
+}
+
 export function MembersTab() {
   const [members, setMembers] = useState<MemberRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [revealedPin, setRevealedPin] = useState<{ memberId: string; pin: string } | null>(null);
+  const [showRegisterForm, setShowRegisterForm] = useState(false);
+  const [viewingMemberId, setViewingMemberId] = useState<string | null>(null);
 
-  useEffect(() => {
+  const loadMembers = () => {
     fetch("/api/members")
       .then(async (res) => {
         const body = await res.json();
@@ -25,6 +52,10 @@ export function MembersTab() {
         setMembers(body);
       })
       .catch((err) => setError(err.message));
+  };
+
+  useEffect(() => {
+    loadMembers();
   }, []);
 
   const filtered = useMemo(() => {
@@ -59,15 +90,34 @@ export function MembersTab() {
 
   return (
     <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-lg font-bold text-[#024424]">Member Management</h3>
-        <input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search by name or Church No..."
-          className="w-64 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#024424]"
-        />
+        <div className="flex items-center gap-2">
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search by name or Church No..."
+            className="w-64 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#024424]"
+          />
+          <button
+            type="button"
+            onClick={() => setShowRegisterForm((v) => !v)}
+            className="rounded-lg bg-[#024424] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#01331a]"
+          >
+            + Register New Member
+          </button>
+        </div>
       </div>
+
+      {showRegisterForm && (
+        <RegisterMemberForm
+          onRegistered={() => {
+            setShowRegisterForm(false);
+            loadMembers();
+          }}
+          onCancel={() => setShowRegisterForm(false)}
+        />
+      )}
 
       {error && <p className="mb-3 text-sm text-[#B22222]">{error}</p>}
       {!error && !members && <p className="py-6 text-center text-sm text-gray-400">Loading...</p>}
@@ -89,7 +139,15 @@ export function MembersTab() {
             <tbody>
               {filtered.map((m) => (
                 <tr key={m.id} className="border-t border-gray-100">
-                  <td className="px-4 py-3 font-semibold">{m.name}</td>
+                  <td className="px-4 py-3 font-semibold">
+                    <button
+                      type="button"
+                      onClick={() => setViewingMemberId(m.id)}
+                      className="text-left text-[#024424] underline decoration-dotted hover:text-[#01331a]"
+                    >
+                      {m.name}
+                    </button>
+                  </td>
                   <td className="px-4 py-3 font-mono text-xs">{m.membershipNo}</td>
                   <td className="px-4 py-3">{m.localChurch.name}</td>
                   <td className="px-4 py-3">{m.localChurch.parish.name}</td>
@@ -123,6 +181,325 @@ export function MembersTab() {
           </table>
         </div>
       )}
+
+      {viewingMemberId && <MemberDossierModal memberId={viewingMemberId} onClose={() => setViewingMemberId(null)} />}
+    </div>
+  );
+}
+
+const CATEGORY_LABEL: Record<string, string> = {
+  TITHE: "Tithe (Zaka)",
+  SADAKA: "Sadaka",
+  CALL_REGISTRY: "Call Registry",
+  OPERATIONS: "Church Operations",
+  CESS: "Cess",
+  PROJECT: "Church Project",
+  WELFARE: "Welfare",
+};
+
+function MemberDossierModal({ memberId, onClose }: { memberId: string; onClose: () => void }) {
+  const [dossier, setDossier] = useState<MemberDossier | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/admin/members/${memberId}/dossier`)
+      .then(async (res) => {
+        const body = await res.json();
+        if (!res.ok) throw new Error(body?.error || "Failed to load member dossier");
+        setDossier(body);
+      })
+      .catch((err) => setError(err.message));
+  }, [memberId]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-8">
+      <div className="max-h-full w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-lg">
+        <div className="mb-4 flex items-center justify-between border-b pb-3">
+          <h3 className="text-base font-bold text-[#024424]">Member Dossier</h3>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            Close
+          </button>
+        </div>
+
+        {error && <p className="py-6 text-center text-sm text-[#B22222]">{error}</p>}
+        {!error && !dossier && <p className="py-6 text-center text-sm text-gray-400">Loading...</p>}
+
+        {dossier && (
+          <div className="space-y-5">
+            <div>
+              <p className="text-lg font-bold text-gray-900">{dossier.name}</p>
+              <p className="font-mono text-xs text-gray-400">{dossier.membershipNo}</p>
+            </div>
+
+            <div>
+              <p className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">Registration Details</p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg bg-gray-50 p-3 text-xs">
+                <span className="text-gray-500">Id No.</span>
+                <span className="text-right font-mono text-gray-900">{dossier.idNumber ?? "Not recorded"}</span>
+                <span className="text-gray-500">Phone No.</span>
+                <span className="text-right font-mono text-gray-900">{dossier.phone}</span>
+                <span className="text-gray-500">Date of Birth</span>
+                <span className="text-right text-gray-900">
+                  {dossier.dateOfBirth ? new Date(dossier.dateOfBirth).toLocaleDateString("en-GB") : "Not recorded"}
+                </span>
+                <span className="text-gray-500">Place of Residence</span>
+                <span className="text-right text-gray-900">{dossier.placeOfResidence ?? "Not recorded"}</span>
+                <span className="text-gray-500">Local Church</span>
+                <span className="text-right font-bold text-gray-900">{dossier.localChurchName}</span>
+                <span className="text-gray-500">Parish</span>
+                <span className="text-right text-gray-900">{dossier.parishName}</span>
+                <span className="text-gray-500">Diocese</span>
+                <span className="text-right text-gray-900">{dossier.dioceseName}</span>
+                <span className="text-gray-500">Archdiocese</span>
+                <span className="text-right text-gray-900">{dossier.archdioceseName}</span>
+                <span className="text-gray-500">Date Joined</span>
+                <span className="text-right text-gray-900">
+                  {dossier.joinedAt
+                    ? new Date(dossier.joinedAt).toLocaleDateString("en-GB")
+                    : new Date(dossier.registeredOn).toLocaleDateString("en-GB")}
+                </span>
+                <span className="text-gray-500">Login</span>
+                <span className="text-right">
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                      dossier.hasLogin ? "bg-green-50 text-green-700" : "bg-gray-200 text-gray-500"
+                    }`}
+                  >
+                    {dossier.hasLogin ? "Set up" : "No login yet"}
+                  </span>
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">Roles &amp; Positions</p>
+              {dossier.positions.length === 0 ? (
+                <p className="text-xs text-gray-400">Holds no leadership position.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {dossier.positions.map((p, i) => (
+                    <div key={i} className="rounded-lg bg-gray-50 px-3 py-2 text-xs">
+                      <span className="font-bold text-[#024424]">{p.roleName}</span>
+                      <span className="text-gray-500"> - {p.scopeName}</span>
+                      <span className="ml-1 text-gray-400">
+                        (since {new Date(p.startDate).toLocaleDateString("en-GB")})
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <p className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">Groups &amp; Movements</p>
+              <p className="text-xs text-gray-400">
+                Not tracked yet - Fellowships/Movements aren&apos;t built into Indi Connect yet.
+              </p>
+            </div>
+
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Giving History</p>
+                <span className="rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-bold text-green-700">
+                  Total: KES {dossier.totalContributed.toLocaleString()}
+                </span>
+              </div>
+              {dossier.recentContributions.length === 0 ? (
+                <p className="text-xs text-gray-400">No contributions recorded yet.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {dossier.recentContributions.map((c) => (
+                    <div key={c.id} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-xs">
+                      <div>
+                        <p className="font-semibold text-gray-800">{CATEGORY_LABEL[c.category] ?? c.category}</p>
+                        <p className="font-mono text-[10px] text-gray-400">
+                          {c.receipt} - {new Date(c.date).toLocaleDateString("en-GB")}
+                        </p>
+                      </div>
+                      <span className="font-mono font-bold text-gray-900">KES {c.amount.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Captures the static facts about a new member (name, IDs, contact,
+ * residence, home church). Roles, group/fellowship affiliation, and
+ * welfare involvement are all separate relations added later - not part
+ * of registration - see MemberPosition / Leadership & Structure tab.
+ */
+function RegisterMemberForm({ onRegistered, onCancel }: { onRegistered: () => void; onCancel: () => void }) {
+  const [churches, setChurches] = useState<LocalChurchOption[] | null>(null);
+  const [membershipNo, setMembershipNo] = useState("");
+  const [name, setName] = useState("");
+  const [idNumber, setIdNumber] = useState("");
+  const [phone, setPhone] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState("");
+  const [placeOfResidence, setPlaceOfResidence] = useState("");
+  const [localChurchId, setLocalChurchId] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const today = new Date().toLocaleDateString("en-GB");
+
+  useEffect(() => {
+    fetch("/api/admin/local-churches")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((body: LocalChurchOption[]) => {
+        setChurches(body);
+        if (body.length === 1) setLocalChurchId(body[0].id);
+      })
+      .catch(() => setChurches([]));
+  }, []);
+
+  const submit = async () => {
+    if (!membershipNo.trim() || !name.trim() || !phone.trim() || !localChurchId) {
+      setError("Member No., Full Name, Phone No., and Local Church are required.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    const res = await fetch("/api/members", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        membershipNo: membershipNo.trim(),
+        name: name.trim(),
+        idNumber: idNumber.trim(),
+        phone: phone.trim(),
+        dateOfBirth: dateOfBirth || null,
+        placeOfResidence: placeOfResidence.trim(),
+        localChurchId,
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) {
+      setError(body?.error || "Failed to register member");
+      return;
+    }
+    onRegistered();
+  };
+
+  return (
+    <div className="mb-5 rounded-lg border border-gray-100 bg-gray-50 p-4">
+      <p className="mb-3 text-xs font-bold uppercase tracking-wider text-gray-500">Member Registration Details</p>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-gray-600">
+            Member No. <span className="text-[#B22222]">*</span>
+          </label>
+          <input
+            value={membershipNo}
+            onChange={(e) => setMembershipNo(e.target.value)}
+            placeholder="e.g. AIPCA-GAT-0052"
+            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-mono text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#024424]"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-gray-600">
+            Member Full Name <span className="text-[#B22222]">*</span>
+          </label>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Jane Wanjiru"
+            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#024424]"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-gray-600">Id No.</label>
+          <input
+            value={idNumber}
+            onChange={(e) => setIdNumber(e.target.value)}
+            placeholder="National ID (optional)"
+            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-mono text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#024424]"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-gray-600">
+            Phone No. <span className="text-[#B22222]">*</span>
+          </label>
+          <input
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="0712345678"
+            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-mono text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#024424]"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-gray-600">Date of Birth</label>
+          <input
+            value={dateOfBirth}
+            onChange={(e) => setDateOfBirth(e.target.value)}
+            type="date"
+            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#024424]"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-gray-600">Place of Residence</label>
+          <input
+            value={placeOfResidence}
+            onChange={(e) => setPlaceOfResidence(e.target.value)}
+            placeholder="e.g. Kenyatta Road"
+            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#024424]"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-gray-600">
+            Local Church <span className="text-[#B22222]">*</span>
+          </label>
+          {churches === null ? (
+            <p className="text-xs text-gray-400">Loading churches...</p>
+          ) : churches.length === 0 ? (
+            <p className="text-xs text-[#B22222]">You don&apos;t manage any local church to register members into.</p>
+          ) : (
+            <select
+              value={localChurchId}
+              onChange={(e) => setLocalChurchId(e.target.value)}
+              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#024424]"
+            >
+              <option value="">Select a local church...</option>
+              {churches.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-gray-600">Date</label>
+          <input
+            value={today}
+            readOnly
+            className="w-full rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-500"
+          />
+        </div>
+      </div>
+
+      {error && <p className="mt-3 text-xs text-[#B22222]">{error}</p>}
+
+      <div className="mt-4 flex gap-2">
+        <button
+          type="button"
+          onClick={submit}
+          disabled={busy}
+          className="rounded-lg bg-[#024424] px-4 py-2 text-xs font-bold text-white hover:bg-[#01331a] disabled:opacity-50"
+        >
+          {busy ? "Registering..." : "Register Member"}
+        </button>
+        <button type="button" onClick={onCancel} className="text-xs font-bold text-gray-400 hover:text-gray-600">
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }

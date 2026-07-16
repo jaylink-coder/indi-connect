@@ -140,6 +140,12 @@ model Member {
   idNumber                String?          @unique
   name                    String
   phone                   String           @unique
+  dateOfBirth             DateTime?        @db.Date
+  placeOfResidence        String?
+  /// When the member actually joined the church - distinct from createdAt
+  /// (when this DB row was created). For real registrations these are the
+  /// same day; for bulk-seeded historical data they differ.
+  joinedAt                DateTime?        @db.Date
   pinHash                 String?
   pinSetAt                DateTime?
   pinMustChange           Boolean          @default(true)
