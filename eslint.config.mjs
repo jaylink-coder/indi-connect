@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The Python crawler's venv (Playwright/Patchright vendor JS) - not app code.
+    "crawler/**",
   ]),
 ]);
 

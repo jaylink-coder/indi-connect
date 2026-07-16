@@ -1,45 +1,119 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/db";
+import { getMemberScopeChain, getScopesForPermission } from "@/lib/hierarchy";
+import { getMemberAccess, hasAccess } from "@/lib/permissions";
+import type { HierarchyTier } from "@prisma/client";
 
+/**
+ * Lists projects a signed-in member can see. By default (the payment
+ * picker's use case): ACTIVE only, every scope from their own local church
+ * up to national HQ. With ?manage=1 and admin.projects VIEW: every status,
+ * scoped instead to the leader's own managed scope(s) - the admin panel's
+ * use case, where a chairman needs to see (and later close) their parish's
+ * completed/cancelled projects too, not just active ones.
+ */
 export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const parishId = searchParams.get("parishId");
+  const { userId } = await auth();
+  const { searchParams } = new URL(request.url);
+  const manage = searchParams.get("manage") === "1";
 
-    const queryOptions: any = {
-      select: {
-        id: true,
-        name: true,
-        projectsPaybill: true,
-        _count: {
-          select: {
-            outposts: true
-          }
+  let scopeFilter: { scopeTier: HierarchyTier; scopeId: string }[] | undefined;
+  let statusFilter: { status: "ACTIVE" } | Record<string, never> = { status: "ACTIVE" };
+
+  if (userId) {
+    const member = await prisma.member.findUnique({ where: { clerkUserId: userId }, select: { id: true } });
+    if (member) {
+      if (manage) {
+        const access = await getMemberAccess(userId);
+        if (access && hasAccess(access.permissions, "admin.projects")) {
+          const scopes = await getScopesForPermission(member.id, "admin.projects");
+          scopeFilter = scopes.map((ref) => ({ scopeTier: ref.tier, scopeId: ref.id }));
+          statusFilter = {};
         }
+      } else {
+        const chain = await getMemberScopeChain(member.id);
+        scopeFilter = chain.map((ref) => ({ scopeTier: ref.tier, scopeId: ref.id }));
       }
-    };
-
-    if (parishId) {
-      queryOptions.where = { id: parishId };
     }
-
-    const projectsData = await prisma.parish.findMany(queryOptions);
-    
-    const formattedProjects = projectsData.map(p => ({
-      id: p.id,
-      name: `${p.name} Infrastructure Development`,
-      paybill: p.projectsPaybill,
-      targetAmount: 5000000,
-      raisedAmount: 1200000,
-      status: "ACTIVE"
-    }));
-
-    return NextResponse.json(formattedProjects);
-  } catch (error) {
-    return NextResponse.json(
-      { error: "Failed to load parish structural projects ledger", details: String(error) },
-      { status: 500 }
-    );
   }
+
+  if (!scopeFilter || scopeFilter.length === 0) {
+    return NextResponse.json([]);
+  }
+
+  const projects = await prisma.project.findMany({
+    where: {
+      ...statusFilter,
+      OR: scopeFilter,
+    },
+    include: { contributions: { select: { amount: true } } },
+    orderBy: { startDate: "desc" },
+  });
+
+  const formatted = projects.map((project) => ({
+    id: project.id,
+    name: project.name,
+    description: project.description,
+    scopeTier: project.scopeTier,
+    status: project.status,
+    targetAmount: Number(project.targetAmount),
+    raisedAmount: project.contributions.reduce((sum, c) => sum + Number(c.amount), 0),
+  }));
+
+  return NextResponse.json(formatted);
+}
+
+/** Creates a project under one of the caller's own admin.projects scopes - never an arbitrary scope they typed in. */
+export async function POST(request: Request) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  }
+
+  const member = await prisma.member.findUnique({ where: { clerkUserId: userId }, select: { id: true } });
+  if (!member) {
+    return NextResponse.json({ error: "No membership record is linked to this account" }, { status: 403 });
+  }
+
+  const access = await getMemberAccess(userId);
+  if (!access || !hasAccess(access.permissions, "admin.projects", "EDIT")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const scopes = await getScopesForPermission(member.id, "admin.projects");
+  if (scopes.length === 0) {
+    return NextResponse.json({ error: "You have no scope to create a project under" }, { status: 403 });
+  }
+
+  const body = await request.json().catch(() => null);
+  const name = typeof body?.name === "string" ? body.name.trim() : "";
+  const description = typeof body?.description === "string" ? body.description.trim() : undefined;
+  const targetAmount = Number(body?.targetAmount);
+  const requestedScopeId = typeof body?.scopeId === "string" ? body.scopeId : scopes[0].id;
+
+  if (!name) {
+    return NextResponse.json({ error: "Project name is required" }, { status: 400 });
+  }
+  if (!Number.isFinite(targetAmount) || targetAmount <= 0) {
+    return NextResponse.json({ error: "Enter a valid target amount" }, { status: 400 });
+  }
+
+  const scope = scopes.find((s) => s.id === requestedScopeId);
+  if (!scope) {
+    return NextResponse.json({ error: "That scope isn't one you manage" }, { status: 403 });
+  }
+
+  const project = await prisma.project.create({
+    data: {
+      name,
+      description,
+      targetAmount,
+      scopeTier: scope.tier,
+      scopeId: scope.id,
+    },
+  });
+
+  return NextResponse.json({ id: project.id }, { status: 201 });
 }

@@ -44,3 +44,14 @@ next-env.d.ts
 .env*
 
 /app/generated/prisma
+
+# crawler (Python)
+crawler/.venv
+crawler/__pycache__
+crawler/src/__pycache__
+crawler/.crawl4ai
+crawler/current.txt
+
+# claude code tooling (not app code)
+.agents/
+.claude/

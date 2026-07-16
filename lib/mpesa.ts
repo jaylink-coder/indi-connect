@@ -36,7 +36,7 @@ export interface MpesaCallback {
       CallbackMetadata: {
         Item: Array<{
           Key: string;
-          Value: any;
+          Value: string | number;
         }>;
       };
     };
@@ -108,13 +108,13 @@ export function processCallback(callback: MpesaCallback): {
   success: boolean;
   resultCode: number;
   resultDesc: string;
-  metadata?: any;
+  metadata?: Record<string, string | number>;
 } {
   const { stkCallback } = callback.Body;
-  
+
   if (stkCallback.ResultCode === 0) {
     // Success - extract metadata
-    const metadata: Record<string, any> = {};
+    const metadata: Record<string, string | number> = {};
     if (stkCallback.CallbackMetadata?.Item) {
       stkCallback.CallbackMetadata.Item.forEach((item) => {
         metadata[item.Key] = item.Value;
@@ -134,4 +134,16 @@ export function processCallback(callback: MpesaCallback): {
     resultCode: stkCallback.ResultCode,
     resultDesc: stkCallback.ResultDesc,
   };
+}
+
+/** Daraja sends TransactionDate as a numeric "YYYYMMDDHHmmss" (e.g. 20260716142359). */
+export function parseMpesaTimestamp(value: number | string): Date {
+  const digits = String(value);
+  const year = Number(digits.slice(0, 4));
+  const month = Number(digits.slice(4, 6)) - 1;
+  const day = Number(digits.slice(6, 8));
+  const hour = Number(digits.slice(8, 10));
+  const minute = Number(digits.slice(10, 12));
+  const second = Number(digits.slice(12, 14));
+  return new Date(year, month, day, hour, minute, second);
 }

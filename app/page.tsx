@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Show, SignInButton, UserButton } from "@clerk/nextjs";
 import { ChurchLogo } from "./components/ChurchLogo";
 import { INDI_CONNECT_CONFIG } from "./config/indi-config";
 
@@ -15,14 +15,6 @@ const impactStats = [
 export default function Home() {
   const m = INDI_CONNECT_CONFIG.modules;
   const router = useRouter();
-  const [memberNumber, setMemberNumber] = useState("");
-
-  const handleMemberLogin = (event: React.FormEvent) => {
-    event.preventDefault();
-    if (memberNumber.trim()) {
-      router.push("/dashboard");
-    }
-  };
 
   const handleLeaderLogin = () => {
     router.push("/admin");
@@ -30,8 +22,21 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#F8FAF8] text-gray-900 font-sans antialiased">
-      <div className="bg-[#02331B] px-4 py-2.5 text-center text-xs font-bold tracking-wider text-[#D4AF37] border-b border-[#D4AF37]/20">
-        {INDI_CONNECT_CONFIG.denomination}
+      <div className="flex items-center bg-[#02331B] px-4 py-2.5 text-xs font-bold tracking-wider text-[#D4AF37] border-b border-[#D4AF37]/20">
+        <div className="flex-1" />
+        <span className="flex-1 text-center">{INDI_CONNECT_CONFIG.denomination}</span>
+        <div className="flex flex-1 items-center justify-end gap-2">
+          <Show when="signed-out">
+            <SignInButton mode="modal">
+              <button className="rounded-full border border-[#D4AF37]/50 px-3 py-1 text-[10px] font-bold text-[#D4AF37] hover:bg-[#D4AF37]/10">
+                Sign In
+              </button>
+            </SignInButton>
+          </Show>
+          <Show when="signed-in">
+            <UserButton />
+          </Show>
+        </div>
       </div>
 
       <header className="border-b border-gray-200/60 bg-white px-6 py-14 text-center shadow-sm">
@@ -77,24 +82,27 @@ export default function Home() {
         </div>
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <form onSubmit={handleMemberLogin} className="flex flex-col justify-between rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="flex flex-col justify-between rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
             <div>
               <h3 className="mb-1 text-lg font-bold text-[#024424]">{m.memberLogin}</h3>
               <p className="mb-4 text-xs text-gray-400">
                 See your giving, attendance history, and certificates.
               </p>
-              <input
-                value={memberNumber}
-                onChange={(event) => setMemberNumber(event.target.value)}
-                type="text"
-                placeholder={m.inputPlaceholder}
-                className="mb-4 w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#024424]"
-              />
             </div>
-            <button type="submit" className="w-full rounded-lg bg-[#024424] py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#01331a]">
-              Open My Account
-            </button>
-          </form>
+            <div className="space-y-2">
+              <button
+                onClick={() => router.push("/activate")}
+                className="w-full rounded-lg bg-[#024424] py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#01331a]"
+              >
+                First Time? Activate My Account
+              </button>
+              <SignInButton mode="modal">
+                <button className="w-full rounded-lg border border-gray-200 py-2.5 text-sm font-bold text-[#024424] transition-colors hover:bg-gray-50">
+                  Already Activated? Sign In
+                </button>
+              </SignInButton>
+            </div>
+          </div>
 
           <div className="flex flex-col justify-between rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
             <div>

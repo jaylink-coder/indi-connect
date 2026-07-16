@@ -7,9 +7,8 @@ const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
 const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER;
 
-const client = TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN 
-  ? twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-  : null;
+const client =
+  TWILIO_ACCOUNT_SID?.startsWith("AC") && TWILIO_AUTH_TOKEN ? twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN) : null;
 
 export interface SMSMessage {
   to: string;
@@ -42,20 +41,44 @@ export async function sendSMS(message: SMSMessage): Promise<boolean> {
   }
 }
 
-// Send payment confirmation SMS
+// Send account activation code
+export async function sendActivationCode(phoneNumber: string, code: string): Promise<boolean> {
+  const message = `Your ${process.env.CHURCH_NAME || "Indi Connect"} activation code is ${code}. It expires in 10 minutes. Do not share this code with anyone.`;
+
+  return sendSMS({ to: phoneNumber, body: message });
+}
+
+// Send payment confirmation SMS to the payee (the account credited) - includes
+// running balances since this is their own account, unlike the payer-only receipt below.
 export async function sendPaymentConfirmation(
   phoneNumber: string,
   memberName: string,
   amount: number,
   receipt: string,
-  contributionType: string
+  contributionType: string,
+  balances?: { categoryTotal: number; grandTotal: number }
 ): Promise<boolean> {
+  const balanceLines = balances
+    ? `\nNew ${contributionType} total: KES ${balances.categoryTotal.toLocaleString()}\nTotal giving: KES ${balances.grandTotal.toLocaleString()}`
+    : "";
+
   const message = `
-Thank you ${memberName}! 
+Thank you ${memberName}!
 Your ${contributionType} of KES ${amount.toLocaleString()} has been received.
-Receipt: ${receipt}
+Receipt: ${receipt}${balanceLines}
 God bless you - ${process.env.CHURCH_NAME || "Indi Connect"}
   `.trim();
+
+  return sendSMS({ to: phoneNumber, body: message });
+}
+
+// Sent to whoever's phone actually paid, when that's not the account being
+// credited (e.g. a daughter settling her mother's cess) - a bare receipt of
+// their own payment, with none of the payee's account details.
+export async function sendPayerReceipt(phoneNumber: string, amount: number): Promise<boolean> {
+  const message = `Your payment of KES ${amount.toLocaleString()} to ${
+    process.env.CHURCH_NAME || "Indi Connect"
+  } was successfully received by the system. Thank you!`;
 
   return sendSMS({ to: phoneNumber, body: message });
 }

@@ -1,30 +1,20 @@
+export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
-
-const memberProfile = {
-  name: "Samuel Mwangi",
-  parish: "Gatundu Parish",
-  aggregates: {
-    totalContributed: 24500,
-    attendanceRate: "88%",
-  },
-  milestones: [
-    { type: "BAPTISM", date: "12th May 1994", clergy: "Rev. J. Kamau" },
-    { type: "CONFIRMATION", date: "18th Aug 2010", clergy: "Bishop Njoroge" },
-    { type: "GUILD_INDUCTION", date: "Active Member", clergy: "Parish Council" },
-  ],
-  projects: [
-    {
-      title: "Cathedral Perimeter Wall",
-      myRole: "Financial Supporter",
-      myDonation: 5000,
-      projectProgress: {
-        target: 500000,
-        raised: 375000,
-      },
-    },
-  ],
-};
+import { auth } from "@clerk/nextjs/server";
+import { prisma } from "@/lib/db";
+import { getMemberAccountSummary } from "@/lib/accounts";
 
 export async function GET() {
-  return NextResponse.json(memberProfile);
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+  }
+
+  const member = await prisma.member.findUnique({ where: { clerkUserId: userId }, select: { id: true } });
+  if (!member) {
+    return NextResponse.json({ error: "No membership record is linked to this account" }, { status: 403 });
+  }
+
+  const summary = await getMemberAccountSummary(member.id);
+  return NextResponse.json(summary);
 }

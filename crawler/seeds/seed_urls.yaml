@@ -1,0 +1,13 @@
+# Copy this to seed_urls.yaml and edit before running the crawler.
+# Only real, human-approved AIPCA sources belong here - see crawler/README.md.
+#
+# Candidates found via web search on 2026-07-16, pending your confirmation:
+urls:
+  - http://aipca-church.or.ke/
+  - http://aipca-church.or.ke/about/
+  - http://aipca-church.or.ke/about/glance/
+  - http://aipca-church.or.ke/about/succession/
+  - https://www.facebook.com/aipcachurch/
+  - https://dacb.org/histories/kenya-aic/
+  - https://deepblue.lib.umich.edu/handle/2027.42/131969
+  - https://www.businessdailyafrica.com/bd/lifestyle/society/rise-of-african-independent-church-movement-in-kenya-2230622

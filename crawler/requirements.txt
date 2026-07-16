@@ -1,0 +1,6 @@
+crawl4ai==0.9.0
+playwright
+psycopg[binary]
+python-dotenv
+tenacity
+pyyaml
