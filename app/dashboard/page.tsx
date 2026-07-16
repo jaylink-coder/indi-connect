@@ -185,7 +185,9 @@ export default function MemberDashboardPage() {
         <div className="mt-2 flex items-center gap-3 sm:mt-0">
           <div className="text-left sm:text-right">
             <p className="text-sm font-bold">{data.member.name}</p>
-            <p className="font-mono text-xs text-gray-300">ID: {data.member.membershipNo} • {data.member.parishName}</p>
+            <p className="font-mono text-xs text-gray-300">
+              ID: {data.member.membershipNo} • {data.member.localChurchName}, {data.member.parishName}
+            </p>
           </div>
           <AdminPadlock isLeader={isLeader} />
         </div>

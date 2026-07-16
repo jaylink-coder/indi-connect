@@ -3,7 +3,7 @@ export const INDI_CONNECT_CONFIG = {
   tagline: "Stand fast in the liberty wherewith Christ hath made us free",
   vernacularTagline: "Rũgamai ma na wĩyathi ũrĩa Kristo atũheire",
   verse: "Galatians 5:1",
-  denomination: "A.I.P.C.A • Diocese of Central Western",
+  denomination: "A.I.P.C.A",
   splitRatio: {
     parish: 0.8,
     dioceseCess: 0.2,
