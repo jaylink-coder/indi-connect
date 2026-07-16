@@ -49,6 +49,8 @@ interface MakePaymentDialogProps {
   initialCategory?: Category;
   /** Hides the category selector when opened from a specific account card. */
   lockCategory?: boolean;
+  /** Restricts the category dropdown to a subset (e.g. Project/Welfare, which have no dedicated account card of their own). Ignored when lockCategory is set. */
+  categories?: Category[];
   triggerLabel?: string;
   triggerClassName?: string;
   onSuccess?: () => void;
@@ -59,6 +61,7 @@ export function MakePaymentDialog({
   defaultIdentifier,
   initialCategory = "TITHE",
   lockCategory = false,
+  categories,
   triggerLabel = "Make a Payment",
   triggerClassName,
   onSuccess,
@@ -291,7 +294,7 @@ export function MakePaymentDialog({
                   }}
                   className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#024424]"
                 >
-                  {CATEGORY_OPTIONS.map((option) => (
+                  {(categories ? CATEGORY_OPTIONS.filter((o) => categories.includes(o.value)) : CATEGORY_OPTIONS).map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>

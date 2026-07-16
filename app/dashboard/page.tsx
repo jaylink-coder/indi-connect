@@ -156,12 +156,6 @@ export default function MemberDashboardPage() {
     loadSummary();
   }, [loadSummary]);
 
-  const paybills = [
-    { label: "Tithe", number: "700000" },
-    { label: "Cess", number: "700001" },
-    { label: "Church Projects", number: "700002" },
-  ];
-
   if (!summary) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#F8FAF8] text-sm text-gray-500">
@@ -280,38 +274,34 @@ export default function MemberDashboardPage() {
           </div>
 
           <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h3 className="mb-4 border-b pb-3 text-base font-bold text-[#024424]">Make a Payment</h3>
+            <h3 className="mb-4 border-b pb-3 text-base font-bold text-[#024424]">Support a Project or Welfare Case</h3>
             <p className="mb-4 text-xs text-gray-500">
-              Pay directly via M-Pesa STK push (incl. Projects and Welfare), or use one of the paybills below with
-              your church number as reference.
+              Tithe, Sadaka, Call Registry, Operations, and Cess each have their own Make Payment button above -
+              this one&apos;s for a specific Church Project or Welfare Case instead.
             </p>
             <MakePaymentDialog
               defaultPhone={data.member.phone}
               defaultIdentifier={data.member.membershipNo}
+              initialCategory="PROJECT"
+              categories={["PROJECT", "WELFARE"]}
               onSuccess={loadSummary}
             />
-            <div className="mt-4 space-y-2">
-              {paybills.map((paybill) => (
-                <div key={paybill.label} className="rounded-lg border border-gray-100 bg-gray-50 p-3">
-                  <p className="text-sm font-semibold text-gray-900">{paybill.label}</p>
-                  <p className="font-mono text-sm font-bold text-[#024424]">{paybill.number}</p>
-                </div>
-              ))}
-            </div>
           </div>
 
-          <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h3 className="mb-4 border-b pb-3 text-base font-bold text-[#024424]">Leader Tools</h3>
-            <p className="mb-3 text-xs text-gray-500">A simple attendance check for Sunday worship and midweek prayer.</p>
-            <ul className="space-y-2 text-sm text-gray-700">
-              <li>• Mark the Sunday attendance list</li>
-              <li>• Confirm special prayer meeting records</li>
-              <li>• Share updates with the parish office</li>
-            </ul>
-            <button onClick={() => router.push("/admin")} className="mt-4 w-full rounded-lg bg-[#024424] px-4 py-2 text-sm font-bold text-white hover:bg-[#01331a]">
-              Open Attendance Register
-            </button>
-          </div>
+          {isLeader && (
+            <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+              <h3 className="mb-4 border-b pb-3 text-base font-bold text-[#024424]">Leader Tools</h3>
+              <p className="mb-3 text-xs text-gray-500">A simple attendance check for Sunday worship and midweek prayer.</p>
+              <ul className="space-y-2 text-sm text-gray-700">
+                <li>• Mark the Sunday attendance list</li>
+                <li>• Confirm special prayer meeting records</li>
+                <li>• Share updates with the parish office</li>
+              </ul>
+              <button onClick={() => router.push("/admin")} className="mt-4 w-full rounded-lg bg-[#024424] px-4 py-2 text-sm font-bold text-white hover:bg-[#01331a]">
+                Open Attendance Register
+              </button>
+            </div>
+          )}
 
           <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
             <h3 className="mb-4 border-b pb-3 text-base font-bold text-[#024424]">Projects I&apos;ve Supported (Mĩako)</h3>

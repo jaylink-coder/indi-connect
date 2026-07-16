@@ -78,6 +78,22 @@ const ROLES: Array<{
       { key: "notifications.finance", access: PermissionAccess.VIEW },
     ],
   },
+  {
+    name: "Super Admin",
+    scope: HierarchyTier.HEADQUARTERS,
+    description:
+      "Full national-level EDIT access across every admin section, the way an investor with full ownership " +
+      "sees and can act on every subsidiary. Individual grants of this role are made directly (not via this " +
+      "seed script) - see the Leadership & Structure admin tab for scoped, self-service position grants.",
+    grants: [
+      { key: "admin.attendance", access: PermissionAccess.EDIT },
+      { key: "admin.contributions", access: PermissionAccess.EDIT },
+      { key: "admin.members", access: PermissionAccess.EDIT },
+      { key: "admin.projects", access: PermissionAccess.EDIT },
+      { key: "admin.rollup", access: PermissionAccess.EDIT },
+      { key: "notifications.finance", access: PermissionAccess.EDIT },
+    ],
+  },
 ];
 
 async function main() {
@@ -91,71 +107,12 @@ async function main() {
     (await prisma.nationalHeadquarters.create({
       data: {
         title: "AIPCA Supreme Board - Bahati HQ",
-        archbishopName: "Archbishop Samson Muthuri"
+        archbishopName: "Julius Njoroge Gitau"
       }
     }));
 
-  // 2. Seed Archdiocese (upsert on name+headquarters - re-running this
-  // script must never create a second copy of the same org unit)
-  const archdiocese = await prisma.archdiocese.upsert({
-    where: { name_headquartersId: { name: "Central Western Archdiocese", headquartersId: hq.id } },
-    update: {},
-    create: {
-      name: "Central Western Archdiocese",
-      headquartersId: hq.id
-    }
-  });
-
-  // 3. Seed Diocese
-  const diocese = await prisma.diocese.upsert({
-    where: { name_archidId: { name: "Gatundu Diocese", archidId: archdiocese.id } },
-    update: {},
-    create: {
-      name: "Gatundu Diocese",
-      bishopName: "Bishop Njoroge",
-      archidId: archdiocese.id
-    }
-  });
-
-  // 4. Seed Local Parish Core
-  const parish = await prisma.parish.upsert({
-    where: { name_dioceseId: { name: "Gatundu Central Parish", dioceseId: diocese.id } },
-    update: {},
-    create: {
-      name: "Gatundu Central Parish",
-      dioceseId: diocese.id,
-      tithePaybill: "700000",
-      cessPaybill: "700001",
-      operationsPaybill: "700002",
-      projectsPaybill: "700003"
-    }
-  });
-
-  // 5. Seed Grassroots Outpost
-  const outpost = await prisma.localChurch.upsert({
-    where: { name_parishId: { name: "Ngarariga Local Outpost", parishId: parish.id } },
-    update: {},
-    create: {
-      name: "Ngarariga Local Outpost",
-      parishId: parish.id
-    }
-  });
-
-  // 6. Seed Baseline Test Member (plain member, no admin rights - used to
-  // verify the padlock stays frozen for non-leaders)
-  await prisma.member.upsert({
-    where: { membershipNo: "AIPCA-GAT-0422" },
-    update: {},
-    create: {
-      membershipNo: "AIPCA-GAT-0422",
-      idNumber: "30112233",
-      name: "Samuel Mwangi",
-      phone: "254700000000",
-      localChurchId: outpost.id
-    }
-  });
-
-  // 7. Seed Permissions and Roles (idempotent - safe to re-run)
+  // 2. Seed Permissions and Roles (idempotent - safe to re-run, keyed on
+  // stable identifiers - Permission.key / Role.name - not display names)
   const permissionsByKey = new Map<string, { id: string }>();
   for (const permission of PERMISSIONS) {
     const row = await prisma.permission.upsert({
@@ -185,29 +142,99 @@ async function main() {
     }
   }
 
-  // 8. Seed a Leader test Member holding the Parish Chairman role at the
-  // seeded parish - used to verify the padlock unlocks /admin after
-  // reverification. Set up a login for this member (see
-  // /api/admin/members/[id]/set-pin) to test end-to-end.
-  const leader = await prisma.member.upsert({
-    where: { membershipNo: "AIPCA-GAT-0001" },
-    update: {},
-    create: {
-      membershipNo: "AIPCA-GAT-0001",
-      name: "Grace Wanjiru",
-      phone: "254700000001",
-      localChurchId: outpost.id
-    }
-  });
+  // 3. Demo hierarchy/members/leader position - bootstrap ONLY on a
+  // genuinely empty database. Once any Archdiocese exists, the real org
+  // structure is presumed live and hand-maintained (via the Leadership &
+  // Structure admin tab, or direct correction) - re-running this script
+  // must never try to upsert-by-name against it, because real branches get
+  // renamed (e.g. a placeholder "Gatundu Diocese" corrected to its real
+  // name) and an upsert keyed on the OLD name would silently recreate a
+  // second, duplicate copy of the whole chain. This happened once already;
+  // see git history around the Kenyatta Road rename for the cleanup.
+  const hasRealHierarchy = (await prisma.archdiocese.count()) > 0;
 
-  const chairman = rolesByName.get("Parish Chairman")!;
-  const existingPosition = await prisma.memberPosition.findFirst({
-    where: { memberId: leader.id, roleId: chairman.id, scopeId: parish.id, endDate: null }
-  });
-  if (!existingPosition) {
-    await prisma.memberPosition.create({
-      data: { memberId: leader.id, roleId: chairman.id, scopeId: parish.id }
+  if (!hasRealHierarchy) {
+    const archdiocese = await prisma.archdiocese.upsert({
+      where: { name_headquartersId: { name: "Central Western Archdiocese", headquartersId: hq.id } },
+      update: {},
+      create: {
+        name: "Central Western Archdiocese",
+        headquartersId: hq.id
+      }
     });
+
+    const diocese = await prisma.diocese.upsert({
+      where: { name_archidId: { name: "Gatundu Diocese", archidId: archdiocese.id } },
+      update: {},
+      create: {
+        name: "Gatundu Diocese",
+        bishopName: "Bishop Njoroge",
+        archidId: archdiocese.id
+      }
+    });
+
+    const parish = await prisma.parish.upsert({
+      where: { name_dioceseId: { name: "Gatundu Central Parish", dioceseId: diocese.id } },
+      update: {},
+      create: {
+        name: "Gatundu Central Parish",
+        dioceseId: diocese.id,
+        tithePaybill: "700000",
+        cessPaybill: "700001",
+        operationsPaybill: "700002",
+        projectsPaybill: "700003"
+      }
+    });
+
+    const outpost = await prisma.localChurch.upsert({
+      where: { name_parishId: { name: "Ngarariga Local Outpost", parishId: parish.id } },
+      update: {},
+      create: {
+        name: "Ngarariga Local Outpost",
+        parishId: parish.id
+      }
+    });
+
+    // Baseline Test Member (plain member, no admin rights - used to verify
+    // the padlock stays frozen for non-leaders)
+    await prisma.member.upsert({
+      where: { membershipNo: "AIPCA-GAT-0422" },
+      update: {},
+      create: {
+        membershipNo: "AIPCA-GAT-0422",
+        idNumber: "30112233",
+        name: "Samuel Mwangi",
+        phone: "254700000000",
+        localChurchId: outpost.id
+      }
+    });
+
+    // Leader test Member holding the Parish Chairman role at the seeded
+    // parish - used to verify the padlock unlocks /admin after
+    // reverification. Set up a login for this member (see
+    // /api/admin/members/[id]/set-pin) to test end-to-end.
+    const leader = await prisma.member.upsert({
+      where: { membershipNo: "AIPCA-GAT-0001" },
+      update: {},
+      create: {
+        membershipNo: "AIPCA-GAT-0001",
+        name: "Grace Wanjiru",
+        phone: "254700000001",
+        localChurchId: outpost.id
+      }
+    });
+
+    const chairmanRole = rolesByName.get("Parish Chairman")!;
+    const existingPosition = await prisma.memberPosition.findFirst({
+      where: { memberId: leader.id, roleId: chairmanRole.id, scopeId: parish.id, endDate: null }
+    });
+    if (!existingPosition) {
+      await prisma.memberPosition.create({
+        data: { memberId: leader.id, roleId: chairmanRole.id, scopeId: parish.id }
+      });
+    }
+  } else {
+    console.log("?? Real hierarchy already exists - skipping demo bootstrap data.");
   }
 
   console.log("? AIPCA Database Hierarchy successfully seeded!");
