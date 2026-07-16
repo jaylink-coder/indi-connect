@@ -16,23 +16,55 @@ const ACCOUNT_CATEGORIES: { category: "TITHE" | "CESS" | "SADAKA" | "CALL_REGIST
   { category: "OPERATIONS", label: "Church Operations" },
 ];
 
-// Attendance and Spiritual Milestones are not yet backed by real data - both
-// need the crawler/curation pass (Phase 5) or an attendance model (Phase 3)
-// before they can be honestly wired up. Left as illustrative placeholders.
-const placeholderData = {
-  attendanceConsistency: "Pending attendance tracking",
-  attendance: [
-    { date: "Sunday, July 12, 2026", type: "Main Sunday Service", status: "Present" },
-    { date: "Sunday, July 05, 2026", type: "Main Sunday Service", status: "Present" },
-    { date: "Wednesday, July 01, 2026", type: "Midweek Prayer", status: "Present" },
-    { date: "Sunday, June 28, 2026", type: "Main Sunday Service", status: "Absent" },
-  ],
-  milestones: [
-    { title: "Holy Baptism (Ũbatĩthio)", date: "May 12, 1994", leader: "Rev. J. Kamau", completed: true },
-    { title: "Confirmation (Kũmĩrĩrio)", date: "August 18, 2010", leader: "Bishop Njoroge", completed: true },
-    { title: "Guild Induction (Mwanake)", date: "Pending Enrollment", leader: "Parish Council", completed: false },
-  ],
+// AIPCA's founding history, sourced from the church's own published "About"
+// and "At a Glance" pages (crawled and reviewed - see crawler/README.md).
+// Nothing here is invented: the church's own account ties its 1925 founding
+// directly to the Gikuyu nationalist/independent-schools movement, and
+// records its churches and schools being shut down under the 1952 State of
+// Emergency for exactly that reason.
+const HERITAGE = {
+  founded: "1925",
+  blurb:
+    "A.I.P.C.A. wasn't founded as a neutral religious brand. It grew out of the 1920s Gikuyu nationalist movement, as the spiritual wing of the Kikuyu Independent Schools Association - Kenyans building their own churches and schools, free of colonial control. When the State of Emergency was declared in 1952, the Church was proscribed and its premises closed, seen by the colonial government as grounds for the freedom movement. Today's largest indigenous church in Africa was born out of that fight for African dignity and self-rule.",
 };
+
+// A first draft of milestone TYPES, not real per-member records - proposed
+// for a real AIPCA member to confirm, correct, or reject before this ever
+// tracks anyone's actual data. No dates/names/completion status are shown
+// for anyone, since none of this has been confirmed as real yet.
+//
+// Grouped in three tiers borrowed structurally from the Catholic Church's
+// three sacrament families (Initiation / Healing / Service of Communion) -
+// become, grow, serve - without claiming A.I.P.C.A. follows Catholic
+// doctrine. This is a shape borrowed from a well-documented model, not
+// content borrowed from it. The "Serving" tier isn't hypothetical: it's the
+// same MemberPosition system already powering the admin padlock (see
+// lib/permissions.ts) - a leadership position IS a milestone, just one we
+// already track for real.
+const MILESTONE_TIERS = [
+  {
+    tier: "Becoming a Member",
+    milestones: [
+      { icon: "🙏", title: "Salvation (Wokovu)", note: "The turn every other milestone follows from", highlight: true },
+      { icon: "💧", title: "Water Baptism", note: "Full immersion, per Pentecostal practice", highlight: true },
+      { icon: "✝️", title: "Confirmation", note: "Unconfirmed whether A.I.P.C.A. observes this", highlight: false },
+    ],
+  },
+  {
+    tier: "Growing as a Member",
+    milestones: [
+      { icon: "📖", title: "Discipleship / Bible Study", note: "Unconfirmed - what does A.I.P.C.A. call this?", highlight: false },
+      { icon: "🤝", title: "Joining a Fellowship", note: "e.g. Men's or Women's Fellowship", highlight: false },
+    ],
+  },
+  {
+    tier: "Serving as a Member",
+    milestones: [
+      { icon: "⛪", title: "Commissioned to a Ministry", note: "e.g. choir, ushering, Sunday school", highlight: false },
+      { icon: "🗝️", title: "Holding a Leadership Position", note: "Already tracked for real - see admin panel", highlight: true },
+    ],
+  },
+];
 
 export default function MemberDashboardPage() {
   const router = useRouter();
@@ -144,20 +176,16 @@ export default function MemberDashboardPage() {
 
           <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
             <h3 className="mb-4 border-b pb-3 text-base font-bold text-[#024424]">My Attendance History (Mahudhurio)</h3>
-            <p className="mb-3 text-[10px] uppercase tracking-wide text-gray-400">Illustrative - attendance tracking is not yet wired up</p>
-            <div className="divide-y divide-gray-100">
-              {placeholderData.attendance.map((record, idx) => (
-                <div key={idx} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-800">{record.date}</p>
-                    <p className="text-xs text-gray-400">{record.type}</p>
-                  </div>
-                  <span className={`rounded px-2 py-0.5 text-xs font-bold ${record.status === "Present" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>
-                    {record.status}
-                  </span>
-                </div>
-              ))}
-            </div>
+            <p className="py-6 text-center text-xs text-gray-400">
+              Attendance tracking isn&apos;t wired up yet - this will show your real Call Registry / Sunday
+              attendance record once it&apos;s built.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-[#D4AF37]/30 bg-[#F4EFDE] p-6 shadow-sm">
+            <h3 className="mb-2 text-base font-bold text-[#024424]">Why We Are A.I.P.C.A.</h3>
+            <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-[#8a6d1a]">Founded {HERITAGE.founded}</p>
+            <p className="text-sm leading-relaxed text-gray-700">{HERITAGE.blurb}</p>
           </div>
         </div>
 
@@ -167,6 +195,7 @@ export default function MemberDashboardPage() {
             <div className="rounded-lg border border-gray-100 bg-[#F8FAF8] p-4">
               <p className="text-sm font-semibold text-gray-900">{data.member.name}</p>
               <p className="mt-1 text-xs text-gray-500">Member No: {data.member.membershipNo}</p>
+              <p className="mt-1 text-xs text-gray-500">Diocese: {data.member.dioceseName}</p>
               <p className="mt-1 text-xs text-gray-500">Parish: {data.member.parishName}</p>
               <div className="mt-3 flex items-center justify-between rounded-lg bg-white px-3 py-2 text-sm">
                 <span className="text-gray-500">Local Church</span>
@@ -242,15 +271,33 @@ export default function MemberDashboardPage() {
           </div>
 
           <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h3 className="mb-4 border-b pb-3 text-base font-bold text-[#024424]">Spiritual Milestones</h3>
-            <p className="mb-3 text-[10px] uppercase tracking-wide text-gray-400">Illustrative - pending AIPCA milestone research</p>
-            <div className="ml-2.5 space-y-5 border-l border-gray-200 pl-5">
-              {placeholderData.milestones.map((milestone, idx) => (
-                <div key={idx} className="relative text-xs">
-                  <span className={`absolute -left-[26px] top-0.5 h-3 w-3 rounded-full border-2 ${milestone.completed ? "border-[#D4AF37] bg-[#D4AF37]" : "border-gray-300 bg-white"}`} />
-                  <p className={`text-sm font-bold ${milestone.completed ? "text-gray-900" : "text-gray-400"}`}>{milestone.title}</p>
-                  <p className="mt-0.5 text-[11px] text-gray-400">{milestone.date}</p>
-                  {milestone.completed ? <p className="text-[10px] italic text-gray-500">By: {milestone.leader}</p> : null}
+            <h3 className="mb-1 text-base font-bold text-[#024424]">Spiritual Milestones</h3>
+            <p className="mb-4 border-b pb-3 text-[11px] italic text-gray-500">
+              Every member&apos;s walk has a shape. Here&apos;s a first draft of what that journey might look
+              like - help us get it right.
+            </p>
+            <div className="space-y-5">
+              {MILESTONE_TIERS.map((group) => (
+                <div key={group.tier}>
+                  <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-[#8a6d1a]">{group.tier}</p>
+                  <div className="ml-2.5 space-y-4 border-l border-gray-200 pl-5">
+                    {group.milestones.map((milestone) => (
+                      <div key={milestone.title} className="relative text-xs">
+                        <span
+                          className={`absolute -left-[27px] top-0 flex h-4 w-4 items-center justify-center rounded-full border-2 text-[9px] leading-none ${
+                            milestone.highlight ? "border-[#D4AF37] bg-[#D4AF37] text-white" : "border-gray-300 bg-white"
+                          }`}
+                        >
+                          {milestone.highlight ? "★" : ""}
+                        </span>
+                        <p className={`text-sm font-bold ${milestone.highlight ? "text-[#024424]" : "text-gray-700"}`}>
+                          <span className="mr-1">{milestone.icon}</span>
+                          {milestone.title}
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-gray-400">{milestone.note}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>

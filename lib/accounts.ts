@@ -18,6 +18,7 @@ export interface AccountSummary {
     phone: string;
     localChurchName: string;
     parishName: string;
+    dioceseName: string;
   };
   totalContributed: number;
   byCategory: Record<string, number>;
@@ -47,7 +48,7 @@ export interface AccountSummary {
 export async function getMemberAccountSummary(memberId: string): Promise<AccountSummary | null> {
   const member = await prisma.member.findUnique({
     where: { id: memberId },
-    include: { localChurch: { include: { parish: true } } },
+    include: { localChurch: { include: { parish: { include: { diocese: true } } } } },
   });
   if (!member) return null;
 
@@ -98,6 +99,7 @@ export async function getMemberAccountSummary(memberId: string): Promise<Account
       phone: member.phone,
       localChurchName: member.localChurch.name,
       parishName: member.localChurch.parish.name,
+      dioceseName: member.localChurch.parish.diocese.name,
     },
     totalContributed,
     byCategory,
