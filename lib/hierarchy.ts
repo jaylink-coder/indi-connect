@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import type { HierarchyTier } from "@prisma/client";
+import type { HierarchyTier, PermissionAccess } from "@prisma/client";
 
 export interface ScopeRef {
   tier: HierarchyTier;
@@ -115,13 +115,29 @@ export async function getScopedLocalChurchIds(memberId: string, permissionKey: s
   return [...new Set(idSets.flat())];
 }
 
-/** The raw (tier, scopeId) pairs behind a member's current positions that grant a given permission - e.g. which Project/WelfareCase scopes they're allowed to create/manage under. */
-export async function getScopesForPermission(memberId: string, permissionKey: string): Promise<ScopeRef[]> {
+/**
+ * The raw (tier, scopeId) pairs behind a member's current positions that
+ * grant a given permission - e.g. which Project/WelfareCase scopes they're
+ * allowed to create/manage under. Pass requireAccess="EDIT" to only count
+ * positions granting EDIT (not VIEW) on that permission - used for anything
+ * that mutates the org structure itself, not just reads it.
+ */
+export async function getScopesForPermission(
+  memberId: string,
+  permissionKey: string,
+  requireAccess?: PermissionAccess
+): Promise<ScopeRef[]> {
   const positions = await prisma.memberPosition.findMany({
     where: {
       memberId,
       endDate: null,
-      role: { permissions: { some: { permission: { key: permissionKey } } } },
+      role: {
+        permissions: {
+          some: requireAccess
+            ? { permission: { key: permissionKey }, access: requireAccess }
+            : { permission: { key: permissionKey } },
+        },
+      },
     },
     select: { scopeId: true, role: { select: { scope: true } } },
   });
