@@ -6,6 +6,23 @@ import { HandCoins, CalendarCheck2, TrendingUp, Phone, Mail, MapPin, Globe, Arro
 import { ChurchLogo } from "./components/ChurchLogo";
 import { INDI_CONNECT_CONFIG } from "./config/indi-config";
 
+function CrossBand({ tone = "dark" }: { tone?: "dark" | "light" }) {
+  const bg = tone === "dark" ? "bg-[#02331B]" : "bg-[#F4EFDE]";
+  const mark = tone === "dark" ? "text-[#D4AF37]/70" : "text-[#024424]/40";
+  return (
+    <div className={`${bg} py-2.5`}>
+      <div className="mx-auto flex max-w-5xl items-center justify-center gap-8 px-4 sm:gap-14">
+        {Array.from({ length: 9 }).map((_, i) => (
+          <svg key={i} viewBox="0 0 24 24" className={`h-3 w-3 shrink-0 ${mark}`} fill="none" aria-hidden="true">
+            <path d="M12 2V22" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+            <path d="M6 8H18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+          </svg>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const features = [
   {
     icon: HandCoins,
@@ -59,13 +76,22 @@ export default function Home() {
               "radial-gradient(circle at 20% 20%, #D4AF37 0, transparent 45%), radial-gradient(circle at 80% 60%, #D4AF37 0, transparent 45%)",
           }}
         />
+        <svg
+          viewBox="0 0 200 200"
+          className="pointer-events-none absolute left-1/2 top-1/2 h-[34rem] w-[34rem] -translate-x-1/2 -translate-y-1/2 text-[#D4AF37] opacity-[0.05]"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path d="M100 10V190" stroke="currentColor" strokeWidth="14" strokeLinecap="round" />
+          <path d="M40 62H160" stroke="currentColor" strokeWidth="14" strokeLinecap="round" />
+        </svg>
         <div className="relative mx-auto max-w-3xl">
           <div className="mb-6 flex justify-center">
             <div className="rounded-2xl bg-white/95 px-4 py-3 shadow-lg">
               <ChurchLogo />
             </div>
           </div>
-          <h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl">
+          <h1 className="font-heading text-4xl font-black tracking-tight text-white sm:text-5xl">
             {INDI_CONNECT_CONFIG.name}
           </h1>
 
@@ -101,12 +127,14 @@ export default function Home() {
         </div>
       </header>
 
+      <CrossBand tone="dark" />
+
       <main>
         <section className="mx-auto max-w-5xl px-4 py-16">
           <h2 className="mb-2 text-center text-xs font-bold uppercase tracking-widest text-[#D4AF37]">
             What Indi Connect gives you
           </h2>
-          <p className="mb-10 text-center text-xl font-black text-[#024424]">
+          <p className="font-heading mb-10 text-center text-2xl font-bold text-[#024424]">
             One place for your giving, attendance, and church life
           </p>
 
@@ -126,11 +154,11 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="border-y border-gray-100 bg-white px-4 py-16">
+        <section className="bg-white px-4 py-16">
           <div className="mx-auto grid max-w-5xl grid-cols-1 gap-10 md:grid-cols-2 md:items-center">
             <div>
-              <h2 className="mb-2 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">About the AIPCA</h2>
-              <p className="mb-4 text-xl font-black text-[#024424]">
+              <h2 className="mb-2 text-xs font-bold uppercase tracking-widest text-[#D4AF37]">A Liturgical Faith</h2>
+              <p className="font-heading mb-4 text-2xl font-bold text-[#024424]">
                 Rooted in 1925, still standing today
               </p>
               <p className="text-sm leading-relaxed text-gray-600">
@@ -138,7 +166,8 @@ export default function Home() {
                 nationalist movements that flourished among the Gikuyu from 1921, as Kenyans sought to run their
                 own schools and churches free of colonial control. What began as an independent church tied to the
                 Kikuyu Independent Schools Association grew, from 1925, into the denomination that continues to
-                serve congregations across Kenya today.
+                serve congregations across Kenya today &mdash; a faith held together, first and foremost, by its
+                liturgy: a settled, ordered form of worship handed down and kept alive in every parish.
               </p>
               <a
                 href="https://aipca-church.or.ke/about/"
@@ -199,6 +228,8 @@ export default function Home() {
           </div>
         </section>
       </main>
+
+      <CrossBand tone="dark" />
 
       <footer className="bg-[#02331B] px-4 py-12 text-white/80">
         <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 sm:grid-cols-3">

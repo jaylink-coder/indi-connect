@@ -7,12 +7,10 @@ export function ChurchLogo({ className = "", showText = true }: ChurchLogoProps)
   return (
     <div className={`inline-flex items-center gap-3 ${className}`}>
       <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-[#D4AF37] bg-[#024424] shadow-sm">
-        <svg viewBox="0 0 64 64" className="h-7 w-7 text-white" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <rect x="8" y="8" width="48" height="48" rx="12" fill="#024424" stroke="#D4AF37" strokeWidth="2" />
-          <path d="M32 16V48" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
-          <path d="M16 32H48" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
-          <path d="M24 24L40 40" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-          <path d="M40 24L24 40" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+        <svg viewBox="0 0 64 64" className="h-7 w-7 text-[#D4AF37]" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="32" cy="32" r="26" fill="none" stroke="currentColor" strokeWidth="1.5" opacity="0.5" />
+          <path d="M32 10V54" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" />
+          <path d="M18 24H46" stroke="currentColor" strokeWidth="4.5" strokeLinecap="round" />
         </svg>
       </div>
       {showText ? (
