@@ -23,18 +23,45 @@ interface Stats {
   totalProjectFunds: number;
 }
 
+type TabId = "command" | "attendance" | "contributions" | "members" | "groups" | "projects" | "rollup" | "structure" | "roles";
+
+/**
+ * Priority order for both the tab bar and the auto-selected landing tab -
+ * whichever a leader can actually use first, not always the same fixed tab
+ * regardless of what their role grants. A Local Church Group Leader (no
+ * Contributions/Members-scope access) lands on Groups, not a frozen
+ * Command Centre; a Parish Treasurer lands on Command Centre since they
+ * do hold admin.contributions.
+ */
+const TABS: { id: TabId; label: string; allowed: (p: PermissionMap) => boolean }[] = [
+  { id: "command", label: "Command Centre", allowed: (p) => hasAccess(p, "admin.members") || hasAccess(p, "admin.contributions") },
+  { id: "attendance", label: "Attendance Register", allowed: (p) => hasAccess(p, "admin.attendance") },
+  { id: "contributions", label: "Contributions", allowed: (p) => hasAccess(p, "admin.contributions") },
+  { id: "members", label: "Member Management", allowed: (p) => hasAccess(p, "admin.members") },
+  { id: "groups", label: "Groups & Fellowships", allowed: (p) => hasAccess(p, "admin.groups") },
+  { id: "projects", label: "Projects", allowed: (p) => hasAccess(p, "admin.projects") },
+  { id: "rollup", label: "Financial Rollup", allowed: (p) => hasAccess(p, "admin.rollup") },
+  { id: "structure", label: "Leadership & Structure", allowed: (p) => hasAccess(p, "admin.members", "EDIT") },
+  { id: "roles", label: "Roles & Permissions", allowed: (p) => hasAccess(p, "admin.roles", "EDIT") },
+];
+
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState<
-    "command" | "attendance" | "contributions" | "members" | "groups" | "projects" | "rollup" | "structure" | "roles"
-  >("command");
+  const [activeTab, setActiveTab] = useState<TabId | null>(null);
   const [permissions, setPermissions] = useState<PermissionMap>({});
   const [stats, setStats] = useState<Stats | null>(null);
 
   useEffect(() => {
     fetch("/api/member/access")
       .then((res) => res.json())
-      .then((body) => setPermissions(body.permissions ?? {}))
-      .catch(() => setPermissions({}));
+      .then((body) => {
+        const perms: PermissionMap = body.permissions ?? {};
+        setPermissions(perms);
+        setActiveTab(TABS.find((t) => t.allowed(perms))?.id ?? TABS[0].id);
+      })
+      .catch(() => {
+        setPermissions({});
+        setActiveTab(TABS[0].id);
+      });
     fetch("/api/admin/stats")
       .then((res) => (res.ok ? res.json() : null))
       .then((body) => setStats(body))
@@ -78,19 +105,7 @@ export default function AdminPage() {
         </div>
 
         <div className="mb-6 flex gap-2 border-b border-gray-200">
-          {(
-            [
-              { id: "command", label: "Command Centre" },
-              { id: "attendance", label: "Attendance Register" },
-              { id: "contributions", label: "Contributions" },
-              { id: "members", label: "Member Management" },
-              { id: "groups", label: "Groups & Fellowships" },
-              { id: "projects", label: "Projects" },
-              { id: "rollup", label: "Financial Rollup" },
-              { id: "structure", label: "Leadership & Structure" },
-              { id: "roles", label: "Roles & Permissions" },
-            ] as const
-          ).map((tab) => (
+          {TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
@@ -104,6 +119,8 @@ export default function AdminPage() {
             </button>
           ))}
         </div>
+
+        {activeTab === null && <p className="py-10 text-center text-sm text-gray-400">Loading...</p>}
 
         {activeTab === "command" && (
           <FrozenSection
