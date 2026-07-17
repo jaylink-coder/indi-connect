@@ -30,15 +30,16 @@ export async function GET() {
 
   const localChurchIds = await getScopedLocalChurchIds(member.id, "admin.members");
   if (localChurchIds.length === 0) {
-    return NextResponse.json({ totalMembers: 0, activeMembers: 0, monthlyTithe: 0, totalProjectFunds: 0 });
+    return NextResponse.json({ totalMembers: 0, activeMembers: 0, totalDependents: 0, monthlyTithe: 0, totalProjectFunds: 0 });
   }
 
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [totalMembers, activeMembers, monthlyTitheAgg, projectFundsAgg] = await Promise.all([
+  const [totalMembers, activeMembers, totalDependents, monthlyTitheAgg, projectFundsAgg] = await Promise.all([
     prisma.member.count({ where: { localChurchId: { in: localChurchIds } } }),
     prisma.member.count({ where: { localChurchId: { in: localChurchIds }, pinHash: { not: null } } }),
+    prisma.dependent.count({ where: { localChurchId: { in: localChurchIds } } }),
     prisma.contribution.aggregate({
       where: {
         category: "TITHE",
@@ -59,6 +60,7 @@ export async function GET() {
   return NextResponse.json({
     totalMembers,
     activeMembers,
+    totalDependents,
     monthlyTithe: Number(monthlyTitheAgg._sum.amount ?? 0),
     totalProjectFunds: Number(projectFundsAgg._sum.amount ?? 0),
   });

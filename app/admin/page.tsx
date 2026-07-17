@@ -15,6 +15,7 @@ import { hasAccess, type PermissionMap } from "@/lib/permission-check";
 interface Stats {
   totalMembers: number;
   activeMembers: number;
+  totalDependents: number;
   monthlyTithe: number;
   totalProjectFunds: number;
 }
@@ -50,7 +51,7 @@ export default function AdminPage() {
       </div>
 
       <main className="mx-auto max-w-7xl px-4 py-8">
-        <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-5">
           <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
             <p className="text-xs font-bold uppercase text-gray-500">Total Members</p>
             <p className="mt-2 text-2xl font-black text-[#024424]">{(stats?.totalMembers ?? 0).toLocaleString()}</p>
@@ -58,6 +59,10 @@ export default function AdminPage() {
           <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
             <p className="text-xs font-bold uppercase text-gray-500">Activated Accounts</p>
             <p className="mt-2 text-2xl font-black text-[#024424]">{(stats?.activeMembers ?? 0).toLocaleString()}</p>
+          </div>
+          <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+            <p className="text-xs font-bold uppercase text-gray-500">Children (Dependents)</p>
+            <p className="mt-2 text-2xl font-black text-[#024424]">{(stats?.totalDependents ?? 0).toLocaleString()}</p>
           </div>
           <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
             <p className="text-xs font-bold uppercase text-gray-500">This Month&apos;s Tithe</p>

@@ -76,6 +76,34 @@ enum AttendanceStatus {
   ABSENT
 }
 
+enum Gender {
+  MALE
+  FEMALE
+}
+
+/// The nine standard church groups/fellowships every local church runs.
+/// MEN and MOTHERS_COUNCIL are gender-scoped; MEDIUM/VICTORY/YOUTH/BRIGADE/
+/// SUNDAY_SCHOOL are age-tiered (roughly oldest to youngest); CHOIR and
+/// THE_ANOINTED are open to any age/gender and stack with whatever other
+/// group a member already belongs to.
+enum GroupCategory {
+  MEN
+  MOTHERS_COUNCIL
+  MEDIUM
+  VICTORY
+  YOUTH
+  BRIGADE
+  SUNDAY_SCHOOL
+  CHOIR
+  THE_ANOINTED
+}
+
+enum GroupMembershipStatus {
+  PROBATION
+  ACTIVE
+  SUSPENDED
+}
+
 model NationalHeadquarters {
   id             String        @id @default(uuid())
   title          String        @default("AIPCA Supreme Board - Bahati HQ")
@@ -125,6 +153,8 @@ model LocalChurch {
   parish            Parish             @relation(fields: [parishId], references: [id])
   members           Member[]
   attendanceRecords AttendanceRecord[]
+  groups            Group[]
+  dependents        Dependent[]
   /// The Cess quota for every member of this local church, due MONTHLY.
   /// Set once per congregation (quotas vary by location), not negotiated
   /// per member - see set-cess-target route. Null means unset - the
@@ -141,6 +171,7 @@ model Member {
   name                    String
   phone                   String           @unique
   dateOfBirth             DateTime?        @db.Date
+  gender                  Gender?
   placeOfResidence        String?
   /// When the member actually joined the church - distinct from createdAt
   /// (when this DB row was created). For real registrations these are the
@@ -160,18 +191,27 @@ model Member {
   paymentIntentsInitiated PaymentIntent[]  @relation("PaymentIntentPayer")
   notifications           Notification[]
   attendanceRecords       AttendanceRecord[]
+  groupMemberships        GroupMembership[]
+  milestoneRecords        MemberMilestoneRecord[]
+  dependents              Dependent[]
   createdAt               DateTime         @default(now())
 }
 
 /// One row per member per service. serviceType is a free label (e.g. "Sunday
 /// Service", "Midweek Prayer") rather than an enum since this genuinely
 /// varies by local church, not a fixed universal set like FundCategory.
+/// groupId is set when this is a group meeting rather than a general
+/// service - lets a GroupMembership's suspension status be computed from
+/// real attendance history instead of a manually-maintained flag, once a
+/// group attendance register UI exists (none does yet - see AttendanceTab).
 model AttendanceRecord {
   id            String           @id @default(uuid())
   memberId      String
   member        Member           @relation(fields: [memberId], references: [id])
   localChurchId String
   localChurch   LocalChurch      @relation(fields: [localChurchId], references: [id])
+  groupId       String?
+  group         Group?           @relation(fields: [groupId], references: [id])
   serviceDate   DateTime         @db.Date
   serviceType   String
   status        AttendanceStatus
@@ -179,6 +219,101 @@ model AttendanceRecord {
 
   @@unique([memberId, serviceDate, serviceType])
   @@index([localChurchId, serviceDate])
+}
+
+/// One instance of a standard group per local church (e.g. "Youth" at
+/// Kenyatta Road Church is a different row from "Youth" at Juja Church).
+/// Age bounds are inclusive and nullable for the gender-scoped and
+/// age-independent categories - see GroupCategory.
+model Group {
+  id                 String            @id @default(uuid())
+  category           GroupCategory
+  name               String
+  localChurchId      String
+  localChurch        LocalChurch       @relation(fields: [localChurchId], references: [id])
+  minAge             Int?
+  maxAge             Int?
+  genderRestriction  Gender?
+  memberships        GroupMembership[]
+  attendanceRecords  AttendanceRecord[]
+
+  @@unique([category, localChurchId])
+}
+
+/// A member's standing in one Group. New members start on a 3-month
+/// probation (probationEndsAt = joinedGroupAt + 3 months); status flips to
+/// ACTIVE once probation passes. SUSPENDED is meant to be driven by real
+/// attendance (2+ months absent without notice, via AttendanceRecord with
+/// this groupId) - there's no attendance-taking UI for groups yet, so for
+/// now this is set directly rather than computed automatically.
+/// Exactly one of memberId/dependentId is set - a child's group membership
+/// (Sunday School, Brigade) belongs to their Dependent record, not a Member
+/// row, since children don't have their own Member No./login/contributions.
+model GroupMembership {
+  id              String                 @id @default(uuid())
+  memberId        String?
+  member          Member?                @relation(fields: [memberId], references: [id])
+  dependentId     String?
+  dependent       Dependent?             @relation(fields: [dependentId], references: [id])
+  groupId         String
+  group           Group                  @relation(fields: [groupId], references: [id])
+  joinedGroupAt   DateTime               @db.Date
+  probationEndsAt DateTime               @db.Date
+  status          GroupMembershipStatus  @default(PROBATION)
+  endedAt         DateTime?              @db.Date
+
+  @@unique([memberId, groupId])
+  @@unique([dependentId, groupId])
+}
+
+/// A congregant too young to be a registered Member - no Member No., phone,
+/// or login of their own, tracked instead as a dependent of an adult
+/// guardian (real church practice - a Sunday School/Brigade register is
+/// separate from the main membership roll). guardianId is nullable since
+/// the actual parent/guardian relationship isn't always known.
+model Dependent {
+  id                String                  @id @default(uuid())
+  name              String
+  dateOfBirth       DateTime                @db.Date
+  gender            Gender?
+  guardianId        String?
+  guardian          Member?                 @relation(fields: [guardianId], references: [id])
+  localChurchId     String
+  localChurch       LocalChurch             @relation(fields: [localChurchId], references: [id])
+  groupMemberships  GroupMembership[]
+  milestoneRecords  MemberMilestoneRecord[]
+  createdAt         DateTime                @default(now())
+}
+
+/// Catalog of trackable spiritual milestones - mirrors the draft tiers
+/// shown on the member dashboard (see app/dashboard/page.tsx HERITAGE/
+/// MILESTONE_TIERS comments). "Holding a Leadership Position" is
+/// deliberately NOT in this catalog - it's derived live from MemberPosition,
+/// not a separate record, to avoid two sources of truth for the same fact.
+model MilestoneType {
+  id        String                   @id @default(uuid())
+  key       String                   @unique
+  tier      String
+  title     String
+  icon      String
+  note      String
+  sortOrder Int                      @default(0)
+  records   MemberMilestoneRecord[]
+}
+
+/// Exactly one of memberId/dependentId is set - same convention as GroupMembership.
+model MemberMilestoneRecord {
+  id              String        @id @default(uuid())
+  memberId        String?
+  member          Member?       @relation(fields: [memberId], references: [id])
+  dependentId     String?
+  dependent       Dependent?    @relation(fields: [dependentId], references: [id])
+  milestoneTypeId String
+  milestoneType   MilestoneType @relation(fields: [milestoneTypeId], references: [id])
+  achievedAt      DateTime      @db.Date
+
+  @@unique([memberId, milestoneTypeId])
+  @@unique([dependentId, milestoneTypeId])
 }
 
 /// memberId is the account credited (the payee); paidByMemberId is whoever
