@@ -28,10 +28,10 @@ type TabId = "command" | "attendance" | "contributions" | "members" | "groups" |
 /**
  * Priority order for both the tab bar and the auto-selected landing tab -
  * whichever a leader can actually use first, not always the same fixed tab
- * regardless of what their role grants. A Local Church Group Leader (no
- * Contributions/Members-scope access) lands on Groups, not a frozen
- * Command Centre; a Parish Treasurer lands on Command Centre since they
- * do hold admin.contributions.
+ * regardless of what their role grants. National Treasurer (only
+ * admin.rollup - no Members/Contributions access) lands on Financial
+ * Rollup, not a frozen Command Centre; a Parish Treasurer lands on
+ * Command Centre since they do hold admin.contributions.
  */
 const TABS: { id: TabId; label: string; allowed: (p: PermissionMap) => boolean }[] = [
   { id: "command", label: "Command Centre", allowed: (p) => hasAccess(p, "admin.members") || hasAccess(p, "admin.contributions") },

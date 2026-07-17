@@ -49,13 +49,18 @@ const ROLES: Array<{
     ],
   },
   {
-    name: "Local Church Group Leader",
+    name: "Local Church Chairman",
     scope: HierarchyTier.LOCAL_CHURCH,
-    description: "Runs attendance, groups/fellowships, and views membership for one local church.",
+    description:
+      "Full oversight of a single local church's admin panel - the local-church-level counterpart to " +
+      "Parish Chairman, for the leader responsible for everything at their own church specifically.",
     grants: [
       { key: "admin.attendance", access: PermissionAccess.EDIT },
-      { key: "admin.members", access: PermissionAccess.VIEW },
+      { key: "admin.contributions", access: PermissionAccess.EDIT },
+      { key: "admin.members", access: PermissionAccess.EDIT },
       { key: "admin.groups", access: PermissionAccess.EDIT },
+      { key: "admin.projects", access: PermissionAccess.EDIT },
+      { key: "admin.rollup", access: PermissionAccess.VIEW },
     ],
   },
   {
@@ -66,6 +71,17 @@ const ROLES: Array<{
       "the 'account holder' for that church specifically, distinct from the parish-wide treasurer.",
     grants: [
       { key: "admin.contributions", access: PermissionAccess.EDIT },
+      { key: "admin.rollup", access: PermissionAccess.VIEW },
+      { key: "notifications.finance", access: PermissionAccess.VIEW },
+    ],
+  },
+  {
+    name: "Diocese Treasurer",
+    scope: HierarchyTier.DIOCESE,
+    description: "Manages contributions and projects across a diocese - the diocese-level counterpart to Parish Treasurer.",
+    grants: [
+      { key: "admin.contributions", access: PermissionAccess.EDIT },
+      { key: "admin.projects", access: PermissionAccess.EDIT },
       { key: "admin.rollup", access: PermissionAccess.VIEW },
       { key: "notifications.finance", access: PermissionAccess.VIEW },
     ],
