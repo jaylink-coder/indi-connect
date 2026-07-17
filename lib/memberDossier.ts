@@ -17,6 +17,7 @@ export interface MemberDossier {
   dioceseName: string;
   archdioceseName: string;
   positions: { roleName: string; scopeTier: HierarchyTier; scopeName: string; startDate: string }[];
+  groups: { groupName: string; status: string; joinedGroupAt: string }[];
   totalContributed: number;
   recentContributions: { id: string; category: string; amount: number; date: string; receipt: string }[];
 }
@@ -40,10 +41,8 @@ async function resolveScopeName(tier: HierarchyTier, scopeId: string): Promise<s
 
 /**
  * The consolidated "member dossier" - registration facts plus everything
- * that accumulates around a member over time (roles held, giving history).
- * Group/Fellowship affiliation isn't included yet - that model doesn't
- * exist yet (see roadmap); when it's built it slots in here the same way
- * positions do, not as fields on Member itself.
+ * that accumulates around a member over time (roles held, group/fellowship
+ * affiliation, giving history).
  */
 export async function getMemberDossier(memberId: string): Promise<MemberDossier | null> {
   const member = await prisma.member.findUnique({
@@ -84,6 +83,10 @@ export async function getMemberDossier(memberId: string): Promise<MemberDossier 
         take: 10,
         select: { id: true, category: true, amount: true, dateTransacted: true, mpesaReceiptNo: true },
       },
+      groupMemberships: {
+        where: { endedAt: null },
+        select: { status: true, joinedGroupAt: true, group: { select: { name: true } } },
+      },
     },
   });
 
@@ -120,6 +123,11 @@ export async function getMemberDossier(memberId: string): Promise<MemberDossier 
     dioceseName: member.localChurch.parish.diocese.name,
     archdioceseName: member.localChurch.parish.diocese.archdiocese.name,
     positions,
+    groups: member.groupMemberships.map((gm) => ({
+      groupName: gm.group.name,
+      status: gm.status,
+      joinedGroupAt: gm.joinedGroupAt.toISOString(),
+    })),
     totalContributed,
     recentContributions: member.contributions.map((c) => ({
       id: c.id,

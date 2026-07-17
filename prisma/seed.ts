@@ -11,8 +11,10 @@ const PERMISSIONS = [
   { key: "admin.attendance", label: "Attendance Register", section: "Admin" },
   { key: "admin.contributions", label: "Contributions Ledger", section: "Admin" },
   { key: "admin.members", label: "Member Management", section: "Admin" },
+  { key: "admin.groups", label: "Groups & Fellowships", section: "Admin" },
   { key: "admin.projects", label: "Projects & Welfare", section: "Admin" },
   { key: "admin.rollup", label: "Financial Rollup (Consolidated View)", section: "Admin" },
+  { key: "admin.roles", label: "Roles & Permissions", section: "Admin" },
   { key: "notifications.finance", label: "Receive Finance Notifications", section: "Notifications" },
 ] as const;
 
@@ -30,6 +32,7 @@ const ROLES: Array<{
       { key: "admin.attendance", access: PermissionAccess.EDIT },
       { key: "admin.contributions", access: PermissionAccess.EDIT },
       { key: "admin.members", access: PermissionAccess.EDIT },
+      { key: "admin.groups", access: PermissionAccess.EDIT },
       { key: "admin.projects", access: PermissionAccess.EDIT },
       { key: "admin.rollup", access: PermissionAccess.VIEW },
     ],
@@ -48,10 +51,11 @@ const ROLES: Array<{
   {
     name: "Local Church Group Leader",
     scope: HierarchyTier.LOCAL_CHURCH,
-    description: "Runs attendance and views membership for one local church.",
+    description: "Runs attendance, groups/fellowships, and views membership for one local church.",
     grants: [
       { key: "admin.attendance", access: PermissionAccess.EDIT },
       { key: "admin.members", access: PermissionAccess.VIEW },
+      { key: "admin.groups", access: PermissionAccess.EDIT },
     ],
   },
   {
@@ -89,8 +93,10 @@ const ROLES: Array<{
       { key: "admin.attendance", access: PermissionAccess.EDIT },
       { key: "admin.contributions", access: PermissionAccess.EDIT },
       { key: "admin.members", access: PermissionAccess.EDIT },
+      { key: "admin.groups", access: PermissionAccess.EDIT },
       { key: "admin.projects", access: PermissionAccess.EDIT },
       { key: "admin.rollup", access: PermissionAccess.EDIT },
+      { key: "admin.roles", access: PermissionAccess.EDIT },
       { key: "notifications.finance", access: PermissionAccess.EDIT },
     ],
   },

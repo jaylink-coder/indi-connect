@@ -7,9 +7,11 @@ import { FrozenSection } from "@/components/FrozenSection";
 import { AttendanceTab } from "@/components/admin/AttendanceTab";
 import { ContributionsTab } from "@/components/admin/ContributionsTab";
 import { MembersTab } from "@/components/admin/MembersTab";
+import { GroupsTab } from "@/components/admin/GroupsTab";
 import { ProjectsTab } from "@/components/admin/ProjectsTab";
 import { RollupTab } from "@/components/admin/RollupTab";
 import { StructureTab } from "@/components/admin/StructureTab";
+import { RolesTab } from "@/components/admin/RolesTab";
 import { hasAccess, type PermissionMap } from "@/lib/permission-check";
 
 interface Stats {
@@ -21,9 +23,9 @@ interface Stats {
 }
 
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState<"attendance" | "contributions" | "members" | "projects" | "rollup" | "structure">(
-    "attendance"
-  );
+  const [activeTab, setActiveTab] = useState<
+    "attendance" | "contributions" | "members" | "groups" | "projects" | "rollup" | "structure" | "roles"
+  >("attendance");
   const [permissions, setPermissions] = useState<PermissionMap>({});
   const [stats, setStats] = useState<Stats | null>(null);
 
@@ -80,9 +82,11 @@ export default function AdminPage() {
               { id: "attendance", label: "Attendance Register" },
               { id: "contributions", label: "Contributions" },
               { id: "members", label: "Member Management" },
+              { id: "groups", label: "Groups & Fellowships" },
               { id: "projects", label: "Projects" },
               { id: "rollup", label: "Financial Rollup" },
               { id: "structure", label: "Leadership & Structure" },
+              { id: "roles", label: "Roles & Permissions" },
             ] as const
           ).map((tab) => (
             <button
@@ -117,6 +121,12 @@ export default function AdminPage() {
           </FrozenSection>
         )}
 
+        {activeTab === "groups" && (
+          <FrozenSection allowed={hasAccess(permissions, "admin.groups")} label="Groups & Fellowships">
+            <GroupsTab />
+          </FrozenSection>
+        )}
+
         {activeTab === "projects" && (
           <FrozenSection allowed={hasAccess(permissions, "admin.projects")} label="Projects & Welfare">
             <ProjectsTab />
@@ -132,6 +142,12 @@ export default function AdminPage() {
         {activeTab === "structure" && (
           <FrozenSection allowed={hasAccess(permissions, "admin.members", "EDIT")} label="Leadership & Structure">
             <StructureTab />
+          </FrozenSection>
+        )}
+
+        {activeTab === "roles" && (
+          <FrozenSection allowed={hasAccess(permissions, "admin.roles", "EDIT")} label="Roles & Permissions">
+            <RolesTab />
           </FrozenSection>
         )}
       </main>
