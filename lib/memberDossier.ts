@@ -19,6 +19,7 @@ export interface MemberDossier {
   positions: { roleName: string; scopeTier: HierarchyTier; scopeName: string; startDate: string }[];
   groups: { groupName: string; status: string; joinedGroupAt: string }[];
   totalContributed: number;
+  contributionsByCategory: Record<string, number>;
   recentContributions: { id: string; category: string; amount: number; date: string; receipt: string }[];
 }
 
@@ -94,9 +95,13 @@ export async function getMemberDossier(memberId: string): Promise<MemberDossier 
 
   const allContributions = await prisma.contribution.findMany({
     where: { memberId },
-    select: { amount: true },
+    select: { amount: true, category: true },
   });
   const totalContributed = allContributions.reduce((sum, c) => sum + Number(c.amount), 0);
+  const contributionsByCategory: Record<string, number> = {};
+  for (const c of allContributions) {
+    contributionsByCategory[c.category] = (contributionsByCategory[c.category] ?? 0) + Number(c.amount);
+  }
 
   const positions = await Promise.all(
     member.positions.map(async (p) => ({
@@ -129,6 +134,7 @@ export async function getMemberDossier(memberId: string): Promise<MemberDossier 
       joinedGroupAt: gm.joinedGroupAt.toISOString(),
     })),
     totalContributed,
+    contributionsByCategory,
     recentContributions: member.contributions.map((c) => ({
       id: c.id,
       category: c.category,

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ChurchLogo } from "../components/ChurchLogo";
 import { INDI_CONNECT_CONFIG } from "../config/indi-config";
 import { FrozenSection } from "@/components/FrozenSection";
+import { CommandCentreTab } from "@/components/admin/CommandCentreTab";
 import { AttendanceTab } from "@/components/admin/AttendanceTab";
 import { ContributionsTab } from "@/components/admin/ContributionsTab";
 import { MembersTab } from "@/components/admin/MembersTab";
@@ -24,8 +25,8 @@ interface Stats {
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<
-    "attendance" | "contributions" | "members" | "groups" | "projects" | "rollup" | "structure" | "roles"
-  >("attendance");
+    "command" | "attendance" | "contributions" | "members" | "groups" | "projects" | "rollup" | "structure" | "roles"
+  >("command");
   const [permissions, setPermissions] = useState<PermissionMap>({});
   const [stats, setStats] = useState<Stats | null>(null);
 
@@ -79,6 +80,7 @@ export default function AdminPage() {
         <div className="mb-6 flex gap-2 border-b border-gray-200">
           {(
             [
+              { id: "command", label: "Command Centre" },
               { id: "attendance", label: "Attendance Register" },
               { id: "contributions", label: "Contributions" },
               { id: "members", label: "Member Management" },
@@ -102,6 +104,15 @@ export default function AdminPage() {
             </button>
           ))}
         </div>
+
+        {activeTab === "command" && (
+          <FrozenSection
+            allowed={hasAccess(permissions, "admin.members") || hasAccess(permissions, "admin.contributions")}
+            label="Command Centre"
+          >
+            <CommandCentreTab />
+          </FrozenSection>
+        )}
 
         {activeTab === "attendance" && (
           <FrozenSection allowed={hasAccess(permissions, "admin.attendance")} label="Attendance Register">
