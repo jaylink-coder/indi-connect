@@ -36,25 +36,69 @@ type TabId =
   | "structure"
   | "roles";
 
+type GroupId = "command" | "people" | "finance" | "admin";
+
+interface TabDef {
+  id: TabId;
+  label: string;
+  allowed: (p: PermissionMap) => boolean;
+}
+
+interface GroupDef {
+  id: GroupId;
+  label: string;
+  tabs: TabDef[];
+}
+
 /**
- * Priority order for both the tab bar and the auto-selected landing tab -
- * whichever a leader can actually use first, not always the same fixed tab
- * regardless of what their role grants. National Treasurer (only
- * admin.rollup - no Members/Contributions access) lands on Financial
- * Rollup, not a frozen Command Centre; a Parish Treasurer lands on
- * Command Centre since they do hold admin.contributions.
+ * Two-level nav: GROUPS are the left sidebar (Command Centre, People,
+ * Finance, Administration); each group's tabs render as a pill sub-nav at
+ * the top of the content area. A group/tab only ever shows up if at least
+ * one of its tabs is allowed by the signed-in leader's actual grants -
+ * nothing is hardcoded per role. The landing group/tab is whichever comes
+ * first here that the leader can actually use - e.g. a National Treasurer
+ * (only admin.rollup) lands on Finance > Financial Rollup, not a frozen
+ * Command Centre.
  */
-const TABS: { id: TabId; label: string; allowed: (p: PermissionMap) => boolean }[] = [
-  { id: "command", label: "Command Centre", allowed: (p) => hasAccess(p, "admin.members") || hasAccess(p, "admin.contributions") },
-  { id: "attendance", label: "Attendance Register", allowed: (p) => hasAccess(p, "admin.attendance") },
-  { id: "contributions", label: "Contributions", allowed: (p) => hasAccess(p, "admin.contributions") },
-  { id: "members", label: "Member Management", allowed: (p) => hasAccess(p, "admin.members") },
-  { id: "groups", label: "Groups & Fellowships", allowed: (p) => hasAccess(p, "admin.groups") },
-  { id: "projects", label: "Projects", allowed: (p) => hasAccess(p, "admin.projects") },
-  { id: "rollup", label: "Financial Rollup", allowed: (p) => hasAccess(p, "admin.rollup") },
-  { id: "accounting", label: "Accounting", allowed: (p) => hasAccess(p, "admin.accounting") },
-  { id: "structure", label: "Leadership & Structure", allowed: (p) => hasAccess(p, "admin.members", "EDIT") },
-  { id: "roles", label: "Roles & Permissions", allowed: (p) => hasAccess(p, "admin.roles", "EDIT") },
+const GROUPS: GroupDef[] = [
+  {
+    id: "command",
+    label: "Command Centre",
+    tabs: [
+      {
+        id: "command",
+        label: "Overview",
+        allowed: (p) => hasAccess(p, "admin.members") || hasAccess(p, "admin.contributions"),
+      },
+    ],
+  },
+  {
+    id: "people",
+    label: "People",
+    tabs: [
+      { id: "members", label: "Member Management", allowed: (p) => hasAccess(p, "admin.members") },
+      { id: "groups", label: "Groups & Fellowships", allowed: (p) => hasAccess(p, "admin.groups") },
+      { id: "attendance", label: "Attendance Register", allowed: (p) => hasAccess(p, "admin.attendance") },
+    ],
+  },
+  {
+    id: "finance",
+    label: "Finance",
+    tabs: [
+      { id: "contributions", label: "Contributions", allowed: (p) => hasAccess(p, "admin.contributions") },
+      { id: "projects", label: "Projects & Welfare", allowed: (p) => hasAccess(p, "admin.projects") },
+      { id: "rollup", label: "Financial Rollup", allowed: (p) => hasAccess(p, "admin.rollup") },
+      { id: "accounting", label: "Accounting", allowed: (p) => hasAccess(p, "admin.accounting") },
+    ],
+  },
+  {
+    id: "admin",
+    label: "Administration",
+    tabs: [
+      { id: "structure", label: "Leadership & Structure", allowed: (p) => hasAccess(p, "admin.members", "EDIT") },
+      { id: "roles", label: "Roles & Permissions", allowed: (p) => hasAccess(p, "admin.roles", "EDIT") },
+    ],
+  },
 ];
 
 interface SignedInAs {
@@ -63,6 +107,7 @@ interface SignedInAs {
 }
 
 export default function AdminPage() {
+  const [activeGroup, setActiveGroup] = useState<GroupId | null>(null);
   const [activeTab, setActiveTab] = useState<TabId | null>(null);
   const [permissions, setPermissions] = useState<PermissionMap>({});
   const [stats, setStats] = useState<Stats | null>(null);
@@ -74,18 +119,31 @@ export default function AdminPage() {
       .then((body) => {
         const perms: PermissionMap = body.permissions ?? {};
         setPermissions(perms);
-        setActiveTab(TABS.find((t) => t.allowed(perms))?.id ?? TABS[0].id);
+        const firstGroup = GROUPS.find((g) => g.tabs.some((t) => t.allowed(perms))) ?? GROUPS[0];
+        setActiveGroup(firstGroup.id);
+        setActiveTab(firstGroup.tabs.find((t) => t.allowed(perms))?.id ?? firstGroup.tabs[0].id);
         if (body.name) setSignedInAs({ name: body.name, roleNames: body.roleNames ?? [] });
       })
       .catch(() => {
         setPermissions({});
-        setActiveTab(TABS[0].id);
+        setActiveGroup(GROUPS[0].id);
+        setActiveTab(GROUPS[0].tabs[0].id);
       });
     fetch("/api/admin/stats")
       .then((res) => (res.ok ? res.json() : null))
       .then((body) => setStats(body))
       .catch(() => setStats(null));
   }, []);
+
+  function selectGroup(group: GroupDef) {
+    setActiveGroup(group.id);
+    const visible = group.tabs.filter((t) => t.allowed(permissions));
+    setActiveTab((visible[0] ?? group.tabs[0]).id);
+  }
+
+  const visibleGroups = GROUPS.filter((g) => g.tabs.some((t) => t.allowed(permissions)));
+  const currentGroup = GROUPS.find((g) => g.id === activeGroup) ?? null;
+  const currentGroupTabs = currentGroup ? currentGroup.tabs.filter((t) => t.allowed(permissions)) : [];
 
   return (
     <div className="min-h-screen bg-[#F8FAF8] text-gray-900">
@@ -107,49 +165,66 @@ export default function AdminPage() {
         )}
       </div>
 
-      <main className="mx-auto max-w-7xl px-6 py-8">
-        <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-5">
-          <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-            <p className="text-xs font-bold uppercase text-gray-500">Total Members</p>
-            <p className="mt-2 text-2xl font-black text-[#024424]">{(stats?.totalMembers ?? 0).toLocaleString()}</p>
-          </div>
-          <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-            <p className="text-xs font-bold uppercase text-gray-500">Activated Accounts</p>
-            <p className="mt-2 text-2xl font-black text-[#024424]">{(stats?.activeMembers ?? 0).toLocaleString()}</p>
-          </div>
-          <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-            <p className="text-xs font-bold uppercase text-gray-500">Children (Dependents)</p>
-            <p className="mt-2 text-2xl font-black text-[#024424]">{(stats?.totalDependents ?? 0).toLocaleString()}</p>
-          </div>
-          <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-            <p className="text-xs font-bold uppercase text-gray-500">This Month&apos;s Tithe</p>
-            <p className="mt-2 text-2xl font-black text-[#024424]">KES {(stats?.monthlyTithe ?? 0).toLocaleString()}</p>
-          </div>
-          <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
-            <p className="text-xs font-bold uppercase text-gray-500">Total Project Funds</p>
-            <p className="mt-2 text-2xl font-black text-[#D4AF37]">KES {(stats?.totalProjectFunds ?? 0).toLocaleString()}</p>
-          </div>
-        </div>
-
-        <div className="mb-6 flex gap-2 border-b border-gray-200">
-          {TABS.map((tab) => (
+      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 md:flex-row md:px-6 md:py-8">
+        <nav className="flex gap-2 overflow-x-auto pb-1 md:w-56 md:flex-none md:flex-col md:gap-1 md:overflow-visible md:pb-0">
+          {visibleGroups.map((group) => (
             <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 text-sm font-semibold transition-colors ${
-                activeTab === tab.id
-                  ? "border-b-2 border-[#024424] text-[#024424]"
-                  : "text-gray-500 hover:text-gray-700"
+              key={group.id}
+              onClick={() => selectGroup(group)}
+              className={`whitespace-nowrap rounded-lg px-4 py-2.5 text-left text-sm font-bold transition-colors ${
+                activeGroup === group.id ? "bg-[#024424] text-white shadow-sm" : "text-gray-600 hover:bg-gray-100"
               }`}
             >
-              {tab.label}
+              {group.label}
             </button>
           ))}
-        </div>
+        </nav>
 
-        {activeTab === null && <p className="py-10 text-center text-sm text-gray-400">Loading...</p>}
+        <main className="min-w-0 flex-1">
+          <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-5">
+            <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+              <p className="text-xs font-bold uppercase text-gray-500">Total Members</p>
+              <p className="mt-2 text-2xl font-black text-[#024424]">{(stats?.totalMembers ?? 0).toLocaleString()}</p>
+            </div>
+            <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+              <p className="text-xs font-bold uppercase text-gray-500">Activated Accounts</p>
+              <p className="mt-2 text-2xl font-black text-[#024424]">{(stats?.activeMembers ?? 0).toLocaleString()}</p>
+            </div>
+            <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+              <p className="text-xs font-bold uppercase text-gray-500">Children (Dependents)</p>
+              <p className="mt-2 text-2xl font-black text-[#024424]">{(stats?.totalDependents ?? 0).toLocaleString()}</p>
+            </div>
+            <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+              <p className="text-xs font-bold uppercase text-gray-500">This Month&apos;s Tithe</p>
+              <p className="mt-2 text-2xl font-black text-[#024424]">KES {(stats?.monthlyTithe ?? 0).toLocaleString()}</p>
+            </div>
+            <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+              <p className="text-xs font-bold uppercase text-gray-500">Total Project Funds</p>
+              <p className="mt-2 text-2xl font-black text-[#D4AF37]">KES {(stats?.totalProjectFunds ?? 0).toLocaleString()}</p>
+            </div>
+          </div>
 
-        {activeTab === "command" && (
+          {currentGroupTabs.length > 1 && (
+            <div className="mb-6 flex gap-2 border-b border-gray-200">
+              {currentGroupTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-4 py-2 text-sm font-semibold transition-colors ${
+                    activeTab === tab.id
+                      ? "border-b-2 border-[#024424] text-[#024424]"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {activeTab === null && <p className="py-10 text-center text-sm text-gray-400">Loading...</p>}
+
+          {activeTab === "command" && (
           <FrozenSection
             allowed={hasAccess(permissions, "admin.members") || hasAccess(permissions, "admin.contributions")}
             label="Command Centre"
@@ -214,7 +289,8 @@ export default function AdminPage() {
             <RolesTab />
           </FrozenSection>
         )}
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
