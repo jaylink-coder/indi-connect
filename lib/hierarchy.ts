@@ -95,6 +95,50 @@ export async function getLocalChurchIdsInScope(tier: HierarchyTier, scopeId: str
   }
 }
 
+export interface LocalChurchWithAncestorChain {
+  id: string;
+  name: string;
+  cessTargetAmount: unknown;
+  _count: { members: number };
+  parish: {
+    id: string;
+    name: string;
+    diocese: {
+      id: string;
+      name: string;
+      archdiocese: {
+        id: string;
+        name: string;
+        headquarters: { id: string; title: string };
+      };
+    };
+  };
+}
+
+/**
+ * Every LocalChurch with its full ancestor chain (parish -> diocese ->
+ * archdiocese -> headquarters), in one query - the expensive shared
+ * fetch behind both lib/rollup.ts (financial rollup tree) and
+ * lib/accounting/reports.ts (GL scope expansion), kept in exactly one
+ * place so the two can never drift on how the hierarchy is walked.
+ */
+export async function getLocalChurchesWithAncestorChain(): Promise<LocalChurchWithAncestorChain[]> {
+  return (await prisma.localChurch.findMany({
+    include: {
+      _count: { select: { members: true } },
+      parish: {
+        include: {
+          diocese: {
+            include: {
+              archdiocese: { include: { headquarters: true } },
+            },
+          },
+        },
+      },
+    },
+  })) as unknown as LocalChurchWithAncestorChain[];
+}
+
 /**
  * Every LocalChurch id a member can act on for a given permission key,
  * unioned across all of their current MemberPositions that grant it - a

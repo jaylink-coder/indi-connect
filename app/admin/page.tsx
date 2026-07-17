@@ -13,6 +13,7 @@ import { ProjectsTab } from "@/components/admin/ProjectsTab";
 import { RollupTab } from "@/components/admin/RollupTab";
 import { StructureTab } from "@/components/admin/StructureTab";
 import { RolesTab } from "@/components/admin/RolesTab";
+import { AccountingTab } from "@/components/admin/AccountingTab";
 import { hasAccess, type PermissionMap } from "@/lib/permission-check";
 
 interface Stats {
@@ -23,7 +24,17 @@ interface Stats {
   totalProjectFunds: number;
 }
 
-type TabId = "command" | "attendance" | "contributions" | "members" | "groups" | "projects" | "rollup" | "structure" | "roles";
+type TabId =
+  | "command"
+  | "attendance"
+  | "contributions"
+  | "members"
+  | "groups"
+  | "projects"
+  | "rollup"
+  | "accounting"
+  | "structure"
+  | "roles";
 
 /**
  * Priority order for both the tab bar and the auto-selected landing tab -
@@ -41,6 +52,7 @@ const TABS: { id: TabId; label: string; allowed: (p: PermissionMap) => boolean }
   { id: "groups", label: "Groups & Fellowships", allowed: (p) => hasAccess(p, "admin.groups") },
   { id: "projects", label: "Projects", allowed: (p) => hasAccess(p, "admin.projects") },
   { id: "rollup", label: "Financial Rollup", allowed: (p) => hasAccess(p, "admin.rollup") },
+  { id: "accounting", label: "Accounting", allowed: (p) => hasAccess(p, "admin.accounting") },
   { id: "structure", label: "Leadership & Structure", allowed: (p) => hasAccess(p, "admin.members", "EDIT") },
   { id: "roles", label: "Roles & Permissions", allowed: (p) => hasAccess(p, "admin.roles", "EDIT") },
 ];
@@ -179,6 +191,15 @@ export default function AdminPage() {
         {activeTab === "rollup" && (
           <FrozenSection allowed={hasAccess(permissions, "admin.rollup")} label="Financial Rollup">
             <RollupTab />
+          </FrozenSection>
+        )}
+
+        {activeTab === "accounting" && (
+          <FrozenSection allowed={hasAccess(permissions, "admin.accounting")} label="Accounting">
+            <AccountingTab
+              canEdit={hasAccess(permissions, "admin.accounting", "EDIT")}
+              canJournal={hasAccess(permissions, "admin.accounting", "EDIT") && hasAccess(permissions, "admin.members", "EDIT")}
+            />
           </FrozenSection>
         )}
 

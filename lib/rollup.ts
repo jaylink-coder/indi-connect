@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import type { ScopeRef } from "@/lib/hierarchy";
+import { getLocalChurchesWithAncestorChain, type LocalChurchWithAncestorChain } from "@/lib/hierarchy";
 
 export interface RollupNode {
   tier: "HEADQUARTERS" | "ARCHDIOCESE" | "DIOCESE" | "PARISH" | "LOCAL_CHURCH";
@@ -14,25 +15,7 @@ export interface RollupNode {
   children: RollupNode[];
 }
 
-type LocalChurchWithChain = {
-  id: string;
-  name: string;
-  cessTargetAmount: unknown;
-  _count: { members: number };
-  parish: {
-    id: string;
-    name: string;
-    diocese: {
-      id: string;
-      name: string;
-      archdiocese: {
-        id: string;
-        name: string;
-        headquarters: { id: string; title: string };
-      };
-    };
-  };
-};
+type LocalChurchWithChain = LocalChurchWithAncestorChain;
 
 type Totals = { totalContributed: number; byCategory: Record<string, number> };
 
@@ -153,20 +136,7 @@ function buildArchdioceseNode(
 export async function getFinancialRollup(scopes: ScopeRef[]): Promise<RollupNode[]> {
   if (scopes.length === 0) return [];
 
-  const allLocalChurches = (await prisma.localChurch.findMany({
-    include: {
-      _count: { select: { members: true } },
-      parish: {
-        include: {
-          diocese: {
-            include: {
-              archdiocese: { include: { headquarters: true } },
-            },
-          },
-        },
-      },
-    },
-  })) as unknown as LocalChurchWithChain[];
+  const allLocalChurches = await getLocalChurchesWithAncestorChain();
 
   const churchIds = allLocalChurches.map((c) => c.id);
   const contributions = await prisma.contribution.findMany({

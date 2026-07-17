@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import type { FundCategory, FundSourceChannel, HierarchyTier, PaymentIntentStatus, Prisma } from "@prisma/client";
+import { postContributionEntry } from "@/lib/accounting/postEntry";
 
 /**
  * The 50-bob-a-week "call registry" fee doubles as attendance proof - paying
@@ -104,6 +105,14 @@ async function finalizeContribution(
       sourceChannel: input.sourceChannel,
       paybillNumber: input.paybillNumber,
     },
+  });
+
+  await postContributionEntry(tx, {
+    contributionId: contribution.id,
+    memberId: input.memberId,
+    amount: input.amount,
+    category: input.category,
+    description: `${input.category} contribution - receipt ${input.mpesaReceiptNo}`,
   });
 
   if (input.category === "CALL_REGISTRY") {

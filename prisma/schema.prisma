@@ -64,6 +64,28 @@ enum FundSourceChannel {
   C2B_PAYBILL
 }
 
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  INCOME
+  EXPENSE
+}
+
+enum GLTransactionType {
+  CONTRIBUTION
+  EXPENSE
+  JOURNAL
+  REVERSAL
+}
+
+enum ExpenseStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PAID
+}
+
 enum ReviewStatus {
   PENDING
   APPROVED
@@ -165,36 +187,40 @@ model LocalChurch {
 }
 
 model Member {
-  id                      String           @id @default(uuid())
-  membershipNo            String           @unique
-  idNumber                String?          @unique
+  id                      String                  @id @default(uuid())
+  membershipNo            String                  @unique
+  idNumber                String?                 @unique
   name                    String
-  phone                   String           @unique
-  dateOfBirth             DateTime?        @db.Date
+  phone                   String                  @unique
+  dateOfBirth             DateTime?               @db.Date
   gender                  Gender?
   placeOfResidence        String?
   /// When the member actually joined the church - distinct from createdAt
   /// (when this DB row was created). For real registrations these are the
   /// same day; for bulk-seeded historical data they differ.
-  joinedAt                DateTime?        @db.Date
+  joinedAt                DateTime?               @db.Date
   pinHash                 String?
   pinSetAt                DateTime?
-  pinMustChange           Boolean          @default(true)
-  pinFailedAttempts       Int              @default(0)
+  pinMustChange           Boolean                 @default(true)
+  pinFailedAttempts       Int                     @default(0)
   pinLockedUntil          DateTime?
   localChurchId           String
-  localChurch             LocalChurch      @relation(fields: [localChurchId], references: [id])
-  contributions           Contribution[]   @relation("ContributionPayee")
-  contributionsPaidFor    Contribution[]   @relation("ContributionPayer")
+  localChurch             LocalChurch             @relation(fields: [localChurchId], references: [id])
+  contributions           Contribution[]          @relation("ContributionPayee")
+  contributionsPaidFor    Contribution[]          @relation("ContributionPayer")
   positions               MemberPosition[]
-  paymentIntents          PaymentIntent[]  @relation("PaymentIntentPayee")
-  paymentIntentsInitiated PaymentIntent[]  @relation("PaymentIntentPayer")
+  paymentIntents          PaymentIntent[]         @relation("PaymentIntentPayee")
+  paymentIntentsInitiated PaymentIntent[]         @relation("PaymentIntentPayer")
   notifications           Notification[]
   attendanceRecords       AttendanceRecord[]
   groupMemberships        GroupMembership[]
   milestoneRecords        MemberMilestoneRecord[]
   dependents              Dependent[]
-  createdAt               DateTime         @default(now())
+  glTransactionsPosted    GLTransaction[]         @relation("GLTransactionPoster")
+  expensesSubmitted       Expense[]               @relation("ExpenseSubmitter")
+  expensesApproved        Expense[]               @relation("ExpenseApprover")
+  expensesPaid            Expense[]               @relation("ExpensePayer")
+  createdAt               DateTime                @default(now())
 }
 
 /// One row per member per service. serviceType is a free label (e.g. "Sunday
@@ -226,16 +252,16 @@ model AttendanceRecord {
 /// Age bounds are inclusive and nullable for the gender-scoped and
 /// age-independent categories - see GroupCategory.
 model Group {
-  id                 String            @id @default(uuid())
-  category           GroupCategory
-  name               String
-  localChurchId      String
-  localChurch        LocalChurch       @relation(fields: [localChurchId], references: [id])
-  minAge             Int?
-  maxAge             Int?
-  genderRestriction  Gender?
-  memberships        GroupMembership[]
-  attendanceRecords  AttendanceRecord[]
+  id                String             @id @default(uuid())
+  category          GroupCategory
+  name              String
+  localChurchId     String
+  localChurch       LocalChurch        @relation(fields: [localChurchId], references: [id])
+  minAge            Int?
+  maxAge            Int?
+  genderRestriction Gender?
+  memberships       GroupMembership[]
+  attendanceRecords AttendanceRecord[]
 
   @@unique([category, localChurchId])
 }
@@ -250,17 +276,17 @@ model Group {
 /// (Sunday School, Brigade) belongs to their Dependent record, not a Member
 /// row, since children don't have their own Member No./login/contributions.
 model GroupMembership {
-  id              String                 @id @default(uuid())
+  id              String                @id @default(uuid())
   memberId        String?
-  member          Member?                @relation(fields: [memberId], references: [id])
+  member          Member?               @relation(fields: [memberId], references: [id])
   dependentId     String?
-  dependent       Dependent?             @relation(fields: [dependentId], references: [id])
+  dependent       Dependent?            @relation(fields: [dependentId], references: [id])
   groupId         String
-  group           Group                  @relation(fields: [groupId], references: [id])
-  joinedGroupAt   DateTime               @db.Date
-  probationEndsAt DateTime               @db.Date
-  status          GroupMembershipStatus  @default(PROBATION)
-  endedAt         DateTime?              @db.Date
+  group           Group                 @relation(fields: [groupId], references: [id])
+  joinedGroupAt   DateTime              @db.Date
+  probationEndsAt DateTime              @db.Date
+  status          GroupMembershipStatus @default(PROBATION)
+  endedAt         DateTime?             @db.Date
 
   @@unique([memberId, groupId])
   @@unique([dependentId, groupId])
@@ -272,17 +298,17 @@ model GroupMembership {
 /// separate from the main membership roll). guardianId is nullable since
 /// the actual parent/guardian relationship isn't always known.
 model Dependent {
-  id                String                  @id @default(uuid())
-  name              String
-  dateOfBirth       DateTime                @db.Date
-  gender            Gender?
-  guardianId        String?
-  guardian          Member?                 @relation(fields: [guardianId], references: [id])
-  localChurchId     String
-  localChurch       LocalChurch             @relation(fields: [localChurchId], references: [id])
-  groupMemberships  GroupMembership[]
-  milestoneRecords  MemberMilestoneRecord[]
-  createdAt         DateTime                @default(now())
+  id               String                  @id @default(uuid())
+  name             String
+  dateOfBirth      DateTime                @db.Date
+  gender           Gender?
+  guardianId       String?
+  guardian         Member?                 @relation(fields: [guardianId], references: [id])
+  localChurchId    String
+  localChurch      LocalChurch             @relation(fields: [localChurchId], references: [id])
+  groupMemberships GroupMembership[]
+  milestoneRecords MemberMilestoneRecord[]
+  createdAt        DateTime                @default(now())
 }
 
 /// Catalog of trackable spiritual milestones - mirrors the draft tiers
@@ -291,13 +317,13 @@ model Dependent {
 /// deliberately NOT in this catalog - it's derived live from MemberPosition,
 /// not a separate record, to avoid two sources of truth for the same fact.
 model MilestoneType {
-  id        String                   @id @default(uuid())
-  key       String                   @unique
+  id        String                  @id @default(uuid())
+  key       String                  @unique
   tier      String
   title     String
   icon      String
   note      String
-  sortOrder Int                      @default(0)
+  sortOrder Int                     @default(0)
   records   MemberMilestoneRecord[]
 }
 
@@ -321,27 +347,122 @@ model MemberMilestoneRecord {
 /// daughter settling her mother's cess from her own phone. Both are kept for
 /// the permanent ledger's audit trail, not just the ephemeral PaymentIntent.
 model Contribution {
-  id             String         @id @default(uuid())
-  memberId       String
-  member         Member         @relation("ContributionPayee", fields: [memberId], references: [id])
-  paidByMemberId String?
-  paidByMember   Member?        @relation("ContributionPayer", fields: [paidByMemberId], references: [id])
-  amount         Decimal        @db.Decimal(10, 2)
-  category       FundCategory
-  projectId      String?
-  project        Project?       @relation(fields: [projectId], references: [id])
-  welfareCaseId  String?
-  welfareCase    WelfareCase?   @relation(fields: [welfareCaseId], references: [id])
-  mpesaReceiptNo String         @unique
-  dateTransacted DateTime       @default(now())
-  sourceChannel  FundSourceChannel @default(APP_STK)
-  paybillNumber  String?
-  paymentIntent  PaymentIntent?
-  notifications  Notification[]
+  id               String            @id @default(uuid())
+  memberId         String
+  member           Member            @relation("ContributionPayee", fields: [memberId], references: [id])
+  paidByMemberId   String?
+  paidByMember     Member?           @relation("ContributionPayer", fields: [paidByMemberId], references: [id])
+  amount           Decimal           @db.Decimal(10, 2)
+  category         FundCategory
+  projectId        String?
+  project          Project?          @relation(fields: [projectId], references: [id])
+  welfareCaseId    String?
+  welfareCase      WelfareCase?      @relation(fields: [welfareCaseId], references: [id])
+  mpesaReceiptNo   String            @unique
+  dateTransacted   DateTime          @default(now())
+  sourceChannel    FundSourceChannel @default(APP_STK)
+  paybillNumber    String?
+  paymentIntent    PaymentIntent?
+  notifications    Notification[]
   unmatchedPayment UnmatchedPayment?
+  glTransactions   GLTransaction[]
 
   @@index([memberId])
   @@index([category])
+}
+
+/// Chart of Accounts - fixed reference data (see prisma/seed.ts), not demo
+/// data. code is the stable identifier, never renamed; a retired account
+/// gets isActive:false rather than deleted. fundCategory ties an INCOME
+/// account 1:1 to the existing FundCategory enum so contribution
+/// auto-posting can resolve "which account credits this" via a lookup, not
+/// a hardcoded switch - null for every non-income account.
+model Account {
+  id            String          @id @default(uuid())
+  code          String          @unique
+  name          String
+  type          AccountType
+  fundCategory  FundCategory?   @unique
+  isActive      Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  debitEntries  GLTransaction[] @relation("DebitAccount")
+  creditEntries GLTransaction[] @relation("CreditAccount")
+  expenses      Expense[]
+}
+
+/// One immutable double-entry row - exactly one debit account, one credit
+/// account, one amount (never separate debit/credit amount columns).
+/// scopeTier/scopeId is denormalized at posting time so reports can
+/// tree-walk the hierarchy without joining back through
+/// Contribution/Expense every time. Corrections post a new REVERSAL row
+/// (debit/credit swapped, description prefixed "REVERSAL:") rather than
+/// editing or deleting an existing row - see lib/accounting/postEntry.ts.
+model GLTransaction {
+  id               String            @id @default(uuid())
+  date             DateTime          @default(now())
+  description      String
+  debitAccountId   String
+  debitAccount     Account           @relation("DebitAccount", fields: [debitAccountId], references: [id])
+  creditAccountId  String
+  creditAccount    Account           @relation("CreditAccount", fields: [creditAccountId], references: [id])
+  amount           Decimal           @db.Decimal(12, 2)
+  txnType          GLTransactionType
+  scopeTier        HierarchyTier
+  scopeId          String
+  contributionId   String?
+  contribution     Contribution?     @relation(fields: [contributionId], references: [id])
+  expenseId        String?
+  expense          Expense?          @relation(fields: [expenseId], references: [id])
+  /// Set on the NEW row a reversal creates, pointing back at the original.
+  /// @unique caps each original entry at exactly one reversal.
+  reversalOfId     String?           @unique
+  reversalOf       GLTransaction?    @relation("Reversal", fields: [reversalOfId], references: [id])
+  reversedBy       GLTransaction?    @relation("Reversal")
+  postedByMemberId String?
+  postedByMember   Member?           @relation("GLTransactionPoster", fields: [postedByMemberId], references: [id])
+  createdAt        DateTime          @default(now())
+
+  @@index([scopeTier, scopeId])
+  @@index([debitAccountId])
+  @@index([creditAccountId])
+  @@index([contributionId])
+  @@index([expenseId])
+  @@index([date])
+}
+
+/// A disbursement, raised at any tier via the same scopeTier/scopeId
+/// pattern as Project/WelfareCase (a local church's diesel bill vs. a
+/// diocese's office rent vs. HQ's campaign cost). Workflow: PENDING
+/// (submitted) -> APPROVED -> PAID (posts Dr expense account / Cr cash via
+/// lib/accounting/postEntry.ts), or REJECTED any time before PAID. The
+/// submitter only ever picks expenseAccountId (an EXPENSE-type Account -
+/// a category label like "Utilities") and an amount/description - the
+/// offsetting cash account is resolved automatically at pay time, never
+/// chosen by a user. Double-entry mechanics stay invisible here.
+model Expense {
+  id                  String          @id @default(uuid())
+  scopeTier           HierarchyTier
+  scopeId             String
+  description         String
+  amount              Decimal         @db.Decimal(12, 2)
+  expenseAccountId    String
+  expenseAccount      Account         @relation(fields: [expenseAccountId], references: [id])
+  vendorName          String?
+  status              ExpenseStatus   @default(PENDING)
+  submittedByMemberId String
+  submittedByMember   Member          @relation("ExpenseSubmitter", fields: [submittedByMemberId], references: [id])
+  approvedByMemberId  String?
+  approvedByMember    Member?         @relation("ExpenseApprover", fields: [approvedByMemberId], references: [id])
+  approvedAt          DateTime?
+  rejectionReason     String?
+  paidAt              DateTime?
+  paidByMemberId      String?
+  paidByMember        Member?         @relation("ExpensePayer", fields: [paidByMemberId], references: [id])
+  glTransactions      GLTransaction[]
+  createdAt           DateTime        @default(now())
+
+  @@index([scopeTier, scopeId])
+  @@index([status])
 }
 
 /// Scoped to any tier of the AIPCA hierarchy (a local church's roofing fund,
@@ -537,17 +658,17 @@ model Notification {
 /// history) - the crawler (single writer, low frequency) is responsible for
 /// only ever having one non-SUPERSEDED row per url at a time.
 model KnowledgeSource {
-  id                String        @id @default(dbgenerated("gen_random_uuid()::text")) @map("id")
+  id                String           @id @default(dbgenerated("gen_random_uuid()::text")) @map("id")
   url               String
   title             String?
-  rawMarkdown       String        @map("raw_markdown")
-  contentHash       String        @map("content_hash")
-  reviewStatus      ReviewStatus  @default(PENDING) @map("review_status")
-  previousVersionId String?       @unique @map("previous_version_id")
-  previousVersion   KnowledgeSource?  @relation("KnowledgeSourceVersion", fields: [previousVersionId], references: [id])
-  nextVersion       KnowledgeSource?  @relation("KnowledgeSourceVersion")
-  crawledAt         DateTime      @default(now()) @map("crawled_at")
-  lastCheckedAt     DateTime      @default(now()) @map("last_checked_at")
+  rawMarkdown       String           @map("raw_markdown")
+  contentHash       String           @map("content_hash")
+  reviewStatus      ReviewStatus     @default(PENDING) @map("review_status")
+  previousVersionId String?          @unique @map("previous_version_id")
+  previousVersion   KnowledgeSource? @relation("KnowledgeSourceVersion", fields: [previousVersionId], references: [id])
+  nextVersion       KnowledgeSource? @relation("KnowledgeSourceVersion")
+  crawledAt         DateTime         @default(now()) @map("crawled_at")
+  lastCheckedAt     DateTime         @default(now()) @map("last_checked_at")
 
   @@index([url])
   @@index([reviewStatus])

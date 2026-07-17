@@ -14,9 +14,44 @@ const PERMISSIONS = [
   { key: "admin.groups", label: "Groups & Fellowships", section: "Admin" },
   { key: "admin.projects", label: "Projects & Welfare", section: "Admin" },
   { key: "admin.rollup", label: "Financial Rollup (Consolidated View)", section: "Admin" },
+  { key: "admin.accounting", label: "Accounting (Chart of Accounts, Ledger, Expenses)", section: "Admin" },
   { key: "admin.roles", label: "Roles & Permissions", section: "Admin" },
   { key: "notifications.finance", label: "Receive Finance Notifications", section: "Notifications" },
 ] as const;
+
+/// Default Chart of Accounts - fixed reference data, not demo data (seeded
+/// unconditionally below, never gated behind hasRealHierarchy). Every
+/// FundCategory maps 1:1 to an INCOME account so contribution auto-posting
+/// (lib/accounting/postEntry.ts) can resolve "which account credits this"
+/// via a lookup. One consolidated cash account for v1 - see prisma/schema.prisma
+/// Account model comment for the per-parish-cash-account tradeoff.
+const CHART_OF_ACCOUNTS: Array<{
+  code: string;
+  name: string;
+  type: "ASSET" | "LIABILITY" | "EQUITY" | "INCOME" | "EXPENSE";
+  fundCategory?: "TITHE" | "CESS" | "OPERATIONS" | "PROJECT" | "WELFARE" | "CALL_REGISTRY" | "SADAKA";
+}> = [
+  { code: "1001", name: "Cash & M-Pesa (Consolidated)", type: "ASSET" },
+  { code: "3001", name: "Accumulated Fund Balance", type: "EQUITY" },
+  { code: "4001", name: "Tithe Income", type: "INCOME", fundCategory: "TITHE" },
+  { code: "4002", name: "Cess Income", type: "INCOME", fundCategory: "CESS" },
+  { code: "4003", name: "Operations Income", type: "INCOME", fundCategory: "OPERATIONS" },
+  { code: "4004", name: "Project Income", type: "INCOME", fundCategory: "PROJECT" },
+  { code: "4005", name: "Welfare Income", type: "INCOME", fundCategory: "WELFARE" },
+  { code: "4006", name: "Call Registry Income", type: "INCOME", fundCategory: "CALL_REGISTRY" },
+  { code: "4007", name: "Sadaka Income", type: "INCOME", fundCategory: "SADAKA" },
+  { code: "5001", name: "Salaries & Stipends", type: "EXPENSE" },
+  { code: "5002", name: "Utilities (Power & Water)", type: "EXPENSE" },
+  { code: "5003", name: "Transport & Travel", type: "EXPENSE" },
+  { code: "5004", name: "Office Supplies & Printing", type: "EXPENSE" },
+  { code: "5005", name: "Building & Facility Maintenance", type: "EXPENSE" },
+  { code: "5006", name: "Welfare & Benevolence Disbursements", type: "EXPENSE" },
+  { code: "5007", name: "Denominational Remittances & Dues", type: "EXPENSE" },
+  { code: "5008", name: "Communication (Airtime, SMS, Internet)", type: "EXPENSE" },
+  { code: "5009", name: "Events, Crusades & Conferences", type: "EXPENSE" },
+  { code: "5010", name: "Bank & M-Pesa Charges", type: "EXPENSE" },
+  { code: "5011", name: "Miscellaneous / Other Expenses", type: "EXPENSE" },
+];
 
 const ROLES: Array<{
   name: string;
@@ -35,6 +70,7 @@ const ROLES: Array<{
       { key: "admin.groups", access: PermissionAccess.EDIT },
       { key: "admin.projects", access: PermissionAccess.EDIT },
       { key: "admin.rollup", access: PermissionAccess.VIEW },
+      { key: "admin.accounting", access: PermissionAccess.EDIT },
     ],
   },
   {
@@ -46,6 +82,7 @@ const ROLES: Array<{
       { key: "admin.projects", access: PermissionAccess.EDIT },
       { key: "admin.rollup", access: PermissionAccess.VIEW },
       { key: "notifications.finance", access: PermissionAccess.VIEW },
+      { key: "admin.accounting", access: PermissionAccess.EDIT },
     ],
   },
   {
@@ -61,6 +98,7 @@ const ROLES: Array<{
       { key: "admin.groups", access: PermissionAccess.EDIT },
       { key: "admin.projects", access: PermissionAccess.EDIT },
       { key: "admin.rollup", access: PermissionAccess.VIEW },
+      { key: "admin.accounting", access: PermissionAccess.EDIT },
     ],
   },
   {
@@ -73,6 +111,7 @@ const ROLES: Array<{
       { key: "admin.contributions", access: PermissionAccess.EDIT },
       { key: "admin.rollup", access: PermissionAccess.VIEW },
       { key: "notifications.finance", access: PermissionAccess.VIEW },
+      { key: "admin.accounting", access: PermissionAccess.EDIT },
     ],
   },
   {
@@ -84,6 +123,7 @@ const ROLES: Array<{
       { key: "admin.projects", access: PermissionAccess.EDIT },
       { key: "admin.rollup", access: PermissionAccess.VIEW },
       { key: "notifications.finance", access: PermissionAccess.VIEW },
+      { key: "admin.accounting", access: PermissionAccess.EDIT },
     ],
   },
   {
@@ -96,6 +136,7 @@ const ROLES: Array<{
     grants: [
       { key: "admin.rollup", access: PermissionAccess.VIEW },
       { key: "notifications.finance", access: PermissionAccess.VIEW },
+      { key: "admin.accounting", access: PermissionAccess.VIEW },
     ],
   },
   {
@@ -112,6 +153,7 @@ const ROLES: Array<{
       { key: "admin.groups", access: PermissionAccess.EDIT },
       { key: "admin.projects", access: PermissionAccess.EDIT },
       { key: "admin.rollup", access: PermissionAccess.EDIT },
+      { key: "admin.accounting", access: PermissionAccess.EDIT },
       { key: "admin.roles", access: PermissionAccess.EDIT },
       { key: "notifications.finance", access: PermissionAccess.EDIT },
     ],
@@ -163,6 +205,18 @@ async function main() {
       });
     }
   }
+
+  // 2b. Seed the Chart of Accounts - fixed reference data (not demo data),
+  // so this step is unconditional, unlike the hasRealHierarchy-gated demo
+  // bootstrap below. Idempotent, keyed on the stable Account.code.
+  for (const account of CHART_OF_ACCOUNTS) {
+    await prisma.account.upsert({
+      where: { code: account.code },
+      update: { name: account.name, type: account.type, fundCategory: account.fundCategory ?? null, isActive: true },
+      create: account
+    });
+  }
+  console.log(`Chart of Accounts ready (${CHART_OF_ACCOUNTS.length} accounts).`);
 
   // 3. Demo hierarchy/members/leader position - bootstrap ONLY on a
   // genuinely empty database. Once any Archdiocese exists, the real org
