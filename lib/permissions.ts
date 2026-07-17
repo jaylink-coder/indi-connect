@@ -6,8 +6,10 @@ export { hasAccess } from "@/lib/permission-check";
 
 export interface MemberAccess {
   memberId: string;
+  name: string;
   isLeader: boolean;
   permissions: PermissionMap;
+  roleNames: string[];
 }
 
 /**
@@ -23,11 +25,13 @@ export async function getMemberAccess(memberId: string | null | undefined): Prom
     where: { id: memberId },
     select: {
       id: true,
+      name: true,
       positions: {
         where: { endDate: null },
         select: {
           role: {
             select: {
+              name: true,
               permissions: {
                 select: {
                   access: true,
@@ -56,7 +60,9 @@ export async function getMemberAccess(memberId: string | null | undefined): Prom
 
   return {
     memberId: member.id,
+    name: member.name,
     isLeader: member.positions.length > 0,
     permissions,
+    roleNames: [...new Set(member.positions.map((p) => p.role.name))],
   };
 }

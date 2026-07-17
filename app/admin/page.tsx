@@ -45,10 +45,16 @@ const TABS: { id: TabId; label: string; allowed: (p: PermissionMap) => boolean }
   { id: "roles", label: "Roles & Permissions", allowed: (p) => hasAccess(p, "admin.roles", "EDIT") },
 ];
 
+interface SignedInAs {
+  name: string;
+  roleNames: string[];
+}
+
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<TabId | null>(null);
   const [permissions, setPermissions] = useState<PermissionMap>({});
   const [stats, setStats] = useState<Stats | null>(null);
+  const [signedInAs, setSignedInAs] = useState<SignedInAs | null>(null);
 
   useEffect(() => {
     fetch("/api/member/access")
@@ -57,6 +63,7 @@ export default function AdminPage() {
         const perms: PermissionMap = body.permissions ?? {};
         setPermissions(perms);
         setActiveTab(TABS.find((t) => t.allowed(perms))?.id ?? TABS[0].id);
+        if (body.name) setSignedInAs({ name: body.name, roleNames: body.roleNames ?? [] });
       })
       .catch(() => {
         setPermissions({});
@@ -70,7 +77,7 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-[#F8FAF8] text-gray-900">
-      <div className="flex flex-col bg-[#024424] px-6 py-4 text-white shadow-sm sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 bg-[#024424] px-6 py-4 text-white shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <ChurchLogo className="" showText={false} />
           <div>
@@ -78,6 +85,14 @@ export default function AdminPage() {
             <h2 className="text-xl font-black">Inner Circle - Admin Dashboard</h2>
           </div>
         </div>
+        {signedInAs && (
+          <div className="text-left sm:text-right">
+            <p className="text-sm font-bold text-white">{signedInAs.name}</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[#D4AF37]">
+              {signedInAs.roleNames.length > 0 ? signedInAs.roleNames.join(" · ") : "No leadership position"}
+            </p>
+          </div>
+        )}
       </div>
 
       <main className="mx-auto max-w-7xl px-4 py-8">

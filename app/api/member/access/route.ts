@@ -6,5 +6,10 @@ import { getCurrentMemberId } from "@/lib/session";
 export async function GET() {
   const memberId = await getCurrentMemberId();
   const access = await getMemberAccess(memberId);
-  return NextResponse.json({ isLeader: access?.isLeader ?? false, permissions: access?.permissions ?? {} });
+  return NextResponse.json({
+    isLeader: access?.isLeader ?? false,
+    permissions: access?.permissions ?? {},
+    name: access?.name ?? null,
+    roleNames: access?.roleNames ?? [],
+  });
 }
