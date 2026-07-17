@@ -44,6 +44,7 @@ export async function GET() {
         createdAt: true,
         localChurch: {
           select: {
+            id: true,
             name: true,
             parish: { select: { id: true, name: true } },
           },

@@ -1,89 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, Building2 } from "lucide-react";
-
-interface RollupNode {
-  tier: "HEADQUARTERS" | "ARCHDIOCESE" | "DIOCESE" | "PARISH" | "LOCAL_CHURCH";
-  id: string;
-  name: string;
-  memberCount: number;
-  totalContributed: number;
-  byCategory: Record<string, number>;
-  cessTarget: number | null;
-  cessThisMonth: number;
-  children: RollupNode[];
-}
-
-const TIER_LABEL: Record<RollupNode["tier"], string> = {
-  HEADQUARTERS: "National Headquarters",
-  ARCHDIOCESE: "Archdiocese",
-  DIOCESE: "Diocese",
-  PARISH: "Parish",
-  LOCAL_CHURCH: "Local Church",
-};
-
-/**
- * The "investor sees every subsidiary" view - a recursive, expandable tree.
- * Which node(s) a caller even receives is decided server-side by their
- * admin.rollup scope (see /api/admin/rollup); this component just renders
- * whatever tree it's handed, at any depth.
- */
-function Node({ node, depth }: { node: RollupNode; depth: number }) {
-  const [open, setOpen] = useState(depth === 0);
-  const hasChildren = node.children.length > 0;
-
-  return (
-    <div className={depth > 0 ? "border-l border-gray-100 pl-4" : ""}>
-      <button
-        type="button"
-        onClick={() => hasChildren && setOpen((v) => !v)}
-        className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
-          hasChildren ? "cursor-pointer hover:bg-gray-50" : "cursor-default"
-        }`}
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          {hasChildren ? (
-            open ? (
-              <ChevronDown size={14} className="shrink-0 text-gray-400" />
-            ) : (
-              <ChevronRight size={14} className="shrink-0 text-gray-400" />
-            )
-          ) : (
-            <Building2 size={13} className="shrink-0 text-gray-300" />
-          )}
-          <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-gray-900">{node.name}</p>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
-              {TIER_LABEL[node.tier]} • {node.memberCount.toLocaleString()} member{node.memberCount === 1 ? "" : "s"}
-            </p>
-          </div>
-        </div>
-        <div className="shrink-0 text-right">
-          <p className="font-mono text-sm font-black text-[#024424]">KES {node.totalContributed.toLocaleString()}</p>
-          {node.tier === "LOCAL_CHURCH" && (
-            <p className="text-[10px] text-gray-400">
-              {node.cessTarget !== null
-                ? `Cess this month: KES ${node.cessThisMonth.toLocaleString()} / ${node.cessTarget.toLocaleString()}`
-                : "No Cess quota set"}
-            </p>
-          )}
-        </div>
-      </button>
-
-      {open && hasChildren && (
-        <div className="ml-3 space-y-0.5 border-l border-gray-100 pl-2">
-          {node.children
-            .slice()
-            .sort((a, b) => b.totalContributed - a.totalContributed)
-            .map((child) => (
-              <Node key={child.id} node={child} depth={depth + 1} />
-            ))}
-        </div>
-      )}
-    </div>
-  );
-}
+import { HierarchyTreeNode, type RollupNode } from "./HierarchyTree";
 
 export function RollupTab() {
   const [roots, setRoots] = useState<RollupNode[] | null>(null);
@@ -117,7 +35,7 @@ export function RollupTab() {
       {roots && roots.length > 0 && (
         <div className="space-y-1">
           {roots.map((root) => (
-            <Node key={root.id} node={root} depth={0} />
+            <HierarchyTreeNode key={root.id} node={root} depth={0} />
           ))}
         </div>
       )}
