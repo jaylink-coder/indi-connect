@@ -58,8 +58,8 @@ export default async function Home() {
         <div className="flex flex-1 items-center justify-end gap-2">
           {isSignedIn ? (
             <div className="flex items-center gap-1">
-              <AdminPadlock isLeader={isLeader} />
               <AccountMenu />
+              <AdminPadlock isLeader={isLeader} />
             </div>
           ) : (
             <Link
