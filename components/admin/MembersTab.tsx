@@ -2,22 +2,127 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { MemberDossierModal } from "./MemberDossierModal";
+import { HierarchyTreeNode, collectLocalChurchLeaves, type RollupNode } from "./HierarchyTree";
 
 interface MemberRow {
   id: string;
   membershipNo: string;
   name: string;
   hasLogin: boolean;
-  localChurch: { name: string; parish: { id: string; name: string } };
+  localChurch: { id: string; name: string; parish: { id: string; name: string } };
 }
 
-interface LocalChurchOption {
-  id: string;
-  name: string;
-}
-
+/**
+ * Individual-member actions (registering, resetting a PIN) only ever apply
+ * to one local church at a time - never a multi-church flat list. A leader
+ * whose scope is exactly one church (Local Church Chairman/Treasurer) goes
+ * straight in, same as before. Anyone whose scope spans more than one
+ * church (Parish Chairman, Super Admin) must drill through the org tree
+ * to a specific Local Church first - the tree naturally limits how far
+ * each role can reach, so only Super Admin's tree ever spans past a
+ * single parish.
+ */
 export function MembersTab() {
+  const [hierarchyRoots, setHierarchyRoots] = useState<RollupNode[] | null>(null);
+  const [hierarchyError, setHierarchyError] = useState<string | null>(null);
+  const [selectedChurch, setSelectedChurch] = useState<{ id: string; name: string } | null>(null);
   const [view, setView] = useState<"members" | "children">("members");
+
+  useEffect(() => {
+    fetch("/api/admin/rollup")
+      .then((res) => (res.ok ? res.json() : Promise.reject(res.status)))
+      .then((body) => setHierarchyRoots(body.roots))
+      .catch(() => setHierarchyError("Couldn't load your organization structure."));
+  }, []);
+
+  const localChurchLeaves = useMemo(
+    () => (hierarchyRoots ? collectLocalChurchLeaves(hierarchyRoots) : []),
+    [hierarchyRoots]
+  );
+
+  useEffect(() => {
+    if (localChurchLeaves.length === 1 && !selectedChurch) {
+      setSelectedChurch({ id: localChurchLeaves[0].id, name: localChurchLeaves[0].name });
+    }
+  }, [localChurchLeaves, selectedChurch]);
+
+  const needsChurchPicked = localChurchLeaves.length > 1 && !selectedChurch;
+
+  return (
+    <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+      <div className="mb-4 border-b pb-3">
+        <h3 className="text-lg font-bold text-[#024424]">Member Management</h3>
+        <p className="mt-1 text-xs text-gray-500">
+          {localChurchLeaves.length > 1
+            ? "Select a Local Church to manage its members and children."
+            : "Members and children of your local church."}
+        </p>
+      </div>
+
+      {hierarchyError && <p className="py-6 text-center text-sm text-[#B22222]">{hierarchyError}</p>}
+      {!hierarchyError && hierarchyRoots === null && <p className="py-6 text-center text-sm text-gray-400">Loading...</p>}
+
+      {!hierarchyError && needsChurchPicked && (
+        <div className="space-y-1">
+          {hierarchyRoots!.map((root) => (
+            <HierarchyTreeNode
+              key={root.id}
+              node={root}
+              depth={0}
+              selectedId={null}
+              onSelectLocalChurch={(node) => setSelectedChurch({ id: node.id, name: node.name })}
+            />
+          ))}
+        </div>
+      )}
+
+      {!hierarchyError && selectedChurch && (
+        <>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-700">
+              Managing: {selectedChurch.name}
+            </span>
+            {localChurchLeaves.length > 1 && (
+              <button
+                type="button"
+                onClick={() => setSelectedChurch(null)}
+                className="text-xs font-bold text-gray-400 hover:text-gray-600"
+              >
+                Change Church
+              </button>
+            )}
+          </div>
+
+          <div className="mb-4 flex items-center gap-1 rounded-lg bg-gray-100 p-1">
+            <button
+              type="button"
+              onClick={() => setView("members")}
+              className={`rounded-md px-3 py-1.5 text-xs font-bold ${view === "members" ? "bg-white text-[#024424] shadow-sm" : "text-gray-500"}`}
+            >
+              Members
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("children")}
+              className={`rounded-md px-3 py-1.5 text-xs font-bold ${view === "children" ? "bg-white text-[#024424] shadow-sm" : "text-gray-500"}`}
+            >
+              Children
+            </button>
+          </div>
+
+          {view === "members" && (
+            <MembersPanel localChurchId={selectedChurch.id} localChurchName={selectedChurch.name} />
+          )}
+          {view === "children" && (
+            <ChildrenPanel localChurchId={selectedChurch.id} localChurchName={selectedChurch.name} />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function MembersPanel({ localChurchId, localChurchName }: { localChurchId: string; localChurchName: string }) {
   const [members, setMembers] = useState<MemberRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -42,12 +147,11 @@ export function MembersTab() {
 
   const filtered = useMemo(() => {
     if (!members) return [];
+    const inChurch = members.filter((m) => m.localChurch.id === localChurchId);
     const q = search.trim().toLowerCase();
-    if (!q) return members;
-    return members.filter(
-      (m) => m.name.toLowerCase().includes(q) || m.membershipNo.toLowerCase().includes(q)
-    );
-  }, [members, search]);
+    if (!q) return inChurch;
+    return inChurch.filter((m) => m.name.toLowerCase().includes(q) || m.membershipNo.toLowerCase().includes(q));
+  }, [members, search, localChurchId]);
 
   const handleSetPin = async (member: MemberRow) => {
     const confirmMsg = member.hasLogin
@@ -71,47 +175,27 @@ export function MembersTab() {
   };
 
   return (
-    <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+    <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-1 rounded-lg bg-gray-100 p-1">
-          <button
-            type="button"
-            onClick={() => setView("members")}
-            className={`rounded-md px-3 py-1.5 text-xs font-bold ${view === "members" ? "bg-white text-[#024424] shadow-sm" : "text-gray-500"}`}
-          >
-            Members
-          </button>
-          <button
-            type="button"
-            onClick={() => setView("children")}
-            className={`rounded-md px-3 py-1.5 text-xs font-bold ${view === "children" ? "bg-white text-[#024424] shadow-sm" : "text-gray-500"}`}
-          >
-            Children
-          </button>
-        </div>
-        {view === "members" && (
-          <div className="flex items-center gap-2">
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search by name or Church No..."
-              className="w-64 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#024424]"
-            />
-            <button
-              type="button"
-              onClick={() => setShowRegisterForm((v) => !v)}
-              className="rounded-lg bg-[#024424] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#01331a]"
-            >
-              + Register New Member
-            </button>
-          </div>
-        )}
+        <input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search by name or Church No..."
+          className="w-64 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#024424]"
+        />
+        <button
+          type="button"
+          onClick={() => setShowRegisterForm((v) => !v)}
+          className="rounded-lg bg-[#024424] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#01331a]"
+        >
+          + Register New Member
+        </button>
       </div>
 
-      {view === "children" && <ChildrenPanel />}
-
-      {view === "members" && showRegisterForm && (
+      {showRegisterForm && (
         <RegisterMemberForm
+          localChurchId={localChurchId}
+          localChurchName={localChurchName}
           onRegistered={() => {
             setShowRegisterForm(false);
             loadMembers();
@@ -120,21 +204,17 @@ export function MembersTab() {
         />
       )}
 
-      {view === "members" && error && <p className="mb-3 text-sm text-[#B22222]">{error}</p>}
-      {view === "members" && !error && !members && <p className="py-6 text-center text-sm text-gray-400">Loading...</p>}
-      {view === "members" && members && filtered.length === 0 && (
-        <p className="py-6 text-center text-sm text-gray-400">No members found.</p>
-      )}
+      {error && <p className="mb-3 text-sm text-[#B22222]">{error}</p>}
+      {!error && !members && <p className="py-6 text-center text-sm text-gray-400">Loading...</p>}
+      {members && filtered.length === 0 && <p className="py-6 text-center text-sm text-gray-400">No members found.</p>}
 
-      {view === "members" && members && filtered.length > 0 && (
+      {members && filtered.length > 0 && (
         <div className="overflow-hidden rounded-lg border border-gray-100">
           <table className="min-w-full text-left text-sm">
             <thead className="bg-gray-50 text-xs uppercase tracking-wider text-gray-500">
               <tr>
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Church No.</th>
-                <th className="px-4 py-3">Local Church</th>
-                <th className="px-4 py-3">Parish</th>
                 <th className="px-4 py-3">Login</th>
                 <th className="px-4 py-3"></th>
               </tr>
@@ -152,8 +232,6 @@ export function MembersTab() {
                     </button>
                   </td>
                   <td className="px-4 py-3 font-mono text-xs">{m.membershipNo}</td>
-                  <td className="px-4 py-3">{m.localChurch.name}</td>
-                  <td className="px-4 py-3">{m.localChurch.parish.name}</td>
                   <td className="px-4 py-3">
                     <span
                       className={`rounded-full px-2.5 py-1 text-xs font-bold ${
@@ -194,35 +272,35 @@ export function MembersTab() {
  * Captures the static facts about a new member (name, IDs, contact,
  * residence, home church). Roles, group/fellowship affiliation, and
  * welfare involvement are all separate relations added later - not part
- * of registration - see MemberPosition / Leadership & Structure tab.
+ * of registration - see MemberPosition / Leadership & Structure tab. The
+ * home church is always the one already selected via the org tree, never
+ * a picker here - registration is a local-church-scoped action.
  */
-function RegisterMemberForm({ onRegistered, onCancel }: { onRegistered: () => void; onCancel: () => void }) {
-  const [churches, setChurches] = useState<LocalChurchOption[] | null>(null);
+function RegisterMemberForm({
+  localChurchId,
+  localChurchName,
+  onRegistered,
+  onCancel,
+}: {
+  localChurchId: string;
+  localChurchName: string;
+  onRegistered: () => void;
+  onCancel: () => void;
+}) {
   const [membershipNo, setMembershipNo] = useState("");
   const [name, setName] = useState("");
   const [idNumber, setIdNumber] = useState("");
   const [phone, setPhone] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [placeOfResidence, setPlaceOfResidence] = useState("");
-  const [localChurchId, setLocalChurchId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const today = new Date().toLocaleDateString("en-GB");
 
-  useEffect(() => {
-    fetch("/api/admin/local-churches")
-      .then((res) => (res.ok ? res.json() : []))
-      .then((body: LocalChurchOption[]) => {
-        setChurches(body);
-        if (body.length === 1) setLocalChurchId(body[0].id);
-      })
-      .catch(() => setChurches([]));
-  }, []);
-
   const submit = async () => {
-    if (!membershipNo.trim() || !name.trim() || !phone.trim() || !localChurchId) {
-      setError("Member No., Full Name, Phone No., and Local Church are required.");
+    if (!membershipNo.trim() || !name.trim() || !phone.trim()) {
+      setError("Member No., Full Name, and Phone No. are required.");
       return;
     }
     setBusy(true);
@@ -314,27 +392,12 @@ function RegisterMemberForm({ onRegistered, onCancel }: { onRegistered: () => vo
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs font-semibold text-gray-600">
-            Local Church <span className="text-[#B22222]">*</span>
-          </label>
-          {churches === null ? (
-            <p className="text-xs text-gray-400">Loading churches...</p>
-          ) : churches.length === 0 ? (
-            <p className="text-xs text-[#B22222]">You don&apos;t manage any local church to register members into.</p>
-          ) : (
-            <select
-              value={localChurchId}
-              onChange={(e) => setLocalChurchId(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#024424]"
-            >
-              <option value="">Select a local church...</option>
-              {churches.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          )}
+          <label className="mb-1 block text-xs font-semibold text-gray-600">Local Church</label>
+          <input
+            value={localChurchName}
+            readOnly
+            className="w-full rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-500"
+          />
         </div>
         <div>
           <label className="mb-1 block text-xs font-semibold text-gray-600">Date</label>
@@ -382,82 +445,52 @@ function ageFromDob(dob: string): number {
   return age;
 }
 
-/** Children/minors - tracked separately from the membership roll since they have no Member No., phone, or login of their own. */
-function ChildrenPanel() {
-  const [churches, setChurches] = useState<LocalChurchOption[] | null>(null);
-  const [churchId, setChurchId] = useState("");
+/** Children/minors - tracked separately from the membership roll since they have no Member No., phone, or login of their own. Always scoped to the local church already selected via the org tree. */
+function ChildrenPanel({ localChurchId, localChurchName }: { localChurchId: string; localChurchName: string }) {
   const [dependents, setDependents] = useState<DependentRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
 
-  useEffect(() => {
-    fetch("/api/admin/local-churches")
-      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
-      .then((body: LocalChurchOption[]) => {
-        setChurches(body);
-        if (body.length > 0) setChurchId(body[0].id);
-      })
-      .catch(() => setError("Couldn't load your local churches."));
-  }, []);
-
-  const loadDependents = (id: string) => {
+  const loadDependents = () => {
     setDependents(null);
-    fetch(`/api/admin/dependents?localChurchId=${id}`)
+    fetch(`/api/admin/dependents?localChurchId=${localChurchId}`)
       .then((res) => (res.ok ? res.json() : Promise.reject(res)))
       .then(setDependents)
       .catch(() => setError("Couldn't load children."));
   };
 
   useEffect(() => {
-    if (churchId) loadDependents(churchId);
-  }, [churchId]);
+    loadDependents();
+  }, [localChurchId]);
 
   return (
     <div>
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        {churches && churches.length > 1 ? (
-          <select
-            value={churchId}
-            onChange={(e) => setChurchId(e.target.value)}
-            className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#024424]"
-          >
-            {churches.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <span />
-        )}
-        {churchId && (
-          <button
-            type="button"
-            onClick={() => setShowForm((v) => !v)}
-            className="rounded-lg bg-[#024424] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#01331a]"
-          >
-            + Register Child
-          </button>
-        )}
+      <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => setShowForm((v) => !v)}
+          className="rounded-lg bg-[#024424] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#01331a]"
+        >
+          + Register Child
+        </button>
       </div>
 
-      {showForm && churchId && (
+      {showForm && (
         <RegisterDependentForm
-          localChurchId={churchId}
+          localChurchId={localChurchId}
           onRegistered={() => {
             setShowForm(false);
-            loadDependents(churchId);
+            loadDependents();
           }}
           onCancel={() => setShowForm(false)}
         />
       )}
 
       {error && <p className="text-sm text-[#B22222]">{error}</p>}
-      {!error && churches && churches.length === 0 && (
-        <p className="py-6 text-center text-sm text-gray-400">You don&apos;t manage any local church yet.</p>
+      {!error && !dependents && <p className="py-6 text-center text-sm text-gray-400">Loading...</p>}
+      {dependents && dependents.length === 0 && (
+        <p className="py-6 text-center text-sm text-gray-400">No children registered at {localChurchName} yet.</p>
       )}
-      {!error && (!churches || (churchId && !dependents)) && <p className="py-6 text-center text-sm text-gray-400">Loading...</p>}
-      {dependents && dependents.length === 0 && <p className="py-6 text-center text-sm text-gray-400">No children registered yet.</p>}
 
       {dependents && dependents.length > 0 && (
         <div className="overflow-hidden rounded-lg border border-gray-100">
@@ -509,9 +542,9 @@ function RegisterDependentForm({
   useEffect(() => {
     fetch("/api/members")
       .then((res) => (res.ok ? res.json() : []))
-      .then((body: MemberRow[]) => setGuardians(body.filter((m) => m.localChurch)))
+      .then((body: MemberRow[]) => setGuardians(body.filter((m) => m.localChurch?.id === localChurchId)))
       .catch(() => setGuardians([]));
-  }, []);
+  }, [localChurchId]);
 
   const submit = async () => {
     if (!name.trim() || !dateOfBirth) {

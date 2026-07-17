@@ -23,6 +23,17 @@ export const TIER_LABEL: Record<RollupNode["tier"], string> = {
   LOCAL_CHURCH: "Local Church",
 };
 
+/** Flattens a rollup tree down to just its Local Church leaves - used to decide whether a caller's scope is a single church (skip the tree, act directly) or spans several (must drill in first). */
+export function collectLocalChurchLeaves(nodes: RollupNode[]): RollupNode[] {
+  const out: RollupNode[] = [];
+  function walk(n: RollupNode) {
+    if (n.tier === "LOCAL_CHURCH") out.push(n);
+    for (const c of n.children) walk(c);
+  }
+  for (const n of nodes) walk(n);
+  return out;
+}
+
 interface HierarchyTreeNodeProps {
   node: RollupNode;
   depth: number;
