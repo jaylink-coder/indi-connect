@@ -2,10 +2,12 @@ import Link from "next/link";
 import { HandCoins, CalendarCheck2, TrendingUp, Phone, Mail, MapPin, Globe, ArrowRight } from "lucide-react";
 import { ChurchLogo } from "./components/ChurchLogo";
 import { AccountMenu } from "@/components/AccountMenu";
+import { AdminPadlock } from "@/components/AdminPadlock";
 import { AIPCASeal } from "./components/AIPCASeal";
 import { CrossGlyph } from "./components/CrossGlyph";
 import { INDI_CONNECT_CONFIG } from "./config/indi-config";
 import { getCurrentMemberId } from "@/lib/session";
+import { getMemberAccess } from "@/lib/permissions";
 
 function CrossBand({ tone = "dark" }: { tone?: "dark" | "light" }) {
   const bg = tone === "dark" ? "bg-[#02331B]" : "bg-[#F4EFDE]";
@@ -44,7 +46,9 @@ const features = [
 
 export default async function Home() {
   const m = INDI_CONNECT_CONFIG.modules;
-  const isSignedIn = (await getCurrentMemberId()) !== null;
+  const memberId = await getCurrentMemberId();
+  const isSignedIn = memberId !== null;
+  const isLeader = isSignedIn ? ((await getMemberAccess(memberId))?.isLeader ?? false) : false;
 
   return (
     <div className="min-h-screen bg-[#F8FAF8] text-gray-900 font-sans antialiased">
@@ -53,7 +57,10 @@ export default async function Home() {
         <span className="flex-1 text-center">{INDI_CONNECT_CONFIG.denomination}</span>
         <div className="flex flex-1 items-center justify-end gap-2">
           {isSignedIn ? (
-            <AccountMenu />
+            <div className="flex items-center gap-1">
+              <AdminPadlock isLeader={isLeader} />
+              <AccountMenu />
+            </div>
           ) : (
             <Link
               href="/login"
