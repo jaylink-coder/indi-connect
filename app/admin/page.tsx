@@ -95,7 +95,7 @@ export default function AdminPage() {
         )}
       </div>
 
-      <main className="mx-auto max-w-7xl px-4 py-8">
+      <main className="mx-auto max-w-7xl px-6 py-8">
         <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-5">
           <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
             <p className="text-xs font-bold uppercase text-gray-500">Total Members</p>

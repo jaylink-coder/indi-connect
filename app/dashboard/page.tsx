@@ -187,7 +187,7 @@ export default function MemberDashboardPage() {
         </div>
       </div>
 
-      <main className="mx-auto mt-8 grid max-w-6xl grid-cols-1 gap-6 px-4 lg:grid-cols-3">
+      <main className="mx-auto mt-8 grid max-w-6xl grid-cols-1 gap-6 px-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
             <h3 className="mb-4 border-b pb-3 text-base font-bold text-[#024424]">My Accounts</h3>
