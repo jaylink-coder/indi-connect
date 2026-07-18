@@ -93,6 +93,20 @@ interface MyGroupMembership {
   joinedGroupAt: string;
 }
 
+interface MyAttendanceRecord {
+  serviceDate: string;
+  serviceType: string;
+  status: "PRESENT" | "ABSENT";
+}
+
+interface MyAttendanceSummary {
+  totalServices: number;
+  presentCount: number;
+  absentCount: number;
+  attendanceRate: number | null;
+  recent: MyAttendanceRecord[];
+}
+
 const GROUP_STATUS_STYLE: Record<MyGroupMembership["status"], string> = {
   PROBATION: "bg-amber-50 text-amber-700",
   ACTIVE: "bg-green-50 text-[#024424]",
@@ -172,6 +186,7 @@ export default function MemberDashboardPage() {
   const [openAccount, setOpenAccount] = useState<AccountCategory | null>(null);
   const [myGroups, setMyGroups] = useState<MyGroupMembership[] | null>(null);
   const [myMilestones, setMyMilestones] = useState<MyMilestonesResponse | null>(null);
+  const [myAttendance, setMyAttendance] = useState<MyAttendanceSummary | null>(null);
   const [activeGroup, setActiveGroup] = useState<GroupId>(NAV_GROUPS[0].id);
   const [activeTab, setActiveTab] = useState<TabId>(NAV_GROUPS[0].tabs[0].id);
 
@@ -195,6 +210,10 @@ export default function MemberDashboardPage() {
       .then((res) => (res.ok ? res.json() : Promise.reject()))
       .then(setMyMilestones)
       .catch(() => setMyMilestones(null));
+    fetch("/api/member/attendance")
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then(setMyAttendance)
+      .catch(() => setMyAttendance(null));
     loadSummary();
   }, [loadSummary]);
 
@@ -440,11 +459,57 @@ export default function MemberDashboardPage() {
               </div>
 
               <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-                <h3 className="mb-4 border-b pb-3 text-base font-bold text-[#024424]">My Attendance History (Mahudhurio)</h3>
-                <p className="py-6 text-center text-xs text-gray-400">
-                  Attendance tracking isn&apos;t wired up yet - this will show your real Call Registry / Sunday
-                  attendance record once it&apos;s built.
-                </p>
+                <div className="mb-4 flex items-center justify-between border-b pb-3">
+                  <h3 className="text-base font-bold text-[#024424]">My Attendance History (Mahudhurio)</h3>
+                  {myAttendance && myAttendance.attendanceRate !== null && (
+                    <span className="rounded-full bg-green-50 px-2.5 py-1 text-xs font-bold text-green-700">
+                      {myAttendance.attendanceRate}% attendance
+                    </span>
+                  )}
+                </div>
+                {!myAttendance && <p className="py-6 text-center text-xs text-gray-400">Loading...</p>}
+                {myAttendance && myAttendance.totalServices === 0 && (
+                  <p className="py-6 text-center text-xs text-gray-400">No attendance records yet.</p>
+                )}
+                {myAttendance && myAttendance.totalServices > 0 && (
+                  <>
+                    <div className="mb-4 grid grid-cols-3 gap-3">
+                      <div className="rounded-lg border border-gray-100 bg-gray-50 p-3 text-center">
+                        <p className="font-mono text-lg font-black text-[#024424]">{myAttendance.totalServices}</p>
+                        <p className="mt-0.5 text-[10px] uppercase tracking-wider text-gray-400">Services Tracked</p>
+                      </div>
+                      <div className="rounded-lg border border-gray-100 bg-gray-50 p-3 text-center">
+                        <p className="font-mono text-lg font-black text-green-700">{myAttendance.presentCount}</p>
+                        <p className="mt-0.5 text-[10px] uppercase tracking-wider text-gray-400">Present</p>
+                      </div>
+                      <div className="rounded-lg border border-gray-100 bg-gray-50 p-3 text-center">
+                        <p className="font-mono text-lg font-black text-[#B22222]">{myAttendance.absentCount}</p>
+                        <p className="mt-0.5 text-[10px] uppercase tracking-wider text-gray-400">Absent</p>
+                      </div>
+                    </div>
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-gray-400">Recent Services</p>
+                    <div className="space-y-1.5">
+                      {myAttendance.recent.map((r) => (
+                        <div
+                          key={`${r.serviceDate}-${r.serviceType}`}
+                          className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2"
+                        >
+                          <div>
+                            <p className="text-xs font-semibold text-gray-900">{r.serviceType}</p>
+                            <p className="font-mono text-[10px] text-gray-400">{new Date(r.serviceDate).toLocaleDateString()}</p>
+                          </div>
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                              r.status === "PRESENT" ? "bg-green-50 text-green-700" : "bg-red-50 text-[#B22222]"
+                            }`}
+                          >
+                            {r.status === "PRESENT" ? "Present" : "Absent"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           )}

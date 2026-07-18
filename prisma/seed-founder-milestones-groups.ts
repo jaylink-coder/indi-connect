@@ -18,13 +18,16 @@ async function main() {
   });
   if (!founder) throw new Error("Founder account AIPCA-GAT-0001 not found");
 
+  // Dates now line up with joinedAt (2011-08-14, set in
+  // seed-founder-sample-history.ts) - a long-standing member's real
+  // progression, not a same-year burst.
   const milestoneAchievements: Record<string, Date> = {
-    salvation: new Date(2015, 2, 15),
-    water_baptism: new Date(2015, 5, 21),
-    confirmation: new Date(2015, 8, 6),
-    discipleship: new Date(2016, 1, 14),
-    fellowship: new Date(2016, 4, 1),
-    ministry: new Date(2018, 10, 11),
+    salvation: new Date(2011, 8, 4),
+    water_baptism: new Date(2011, 11, 11),
+    confirmation: new Date(2012, 6, 15),
+    discipleship: new Date(2013, 9, 20),
+    fellowship: new Date(2014, 2, 2),
+    ministry: new Date(2017, 5, 18),
   };
 
   const types = await prisma.milestoneType.findMany();
@@ -44,25 +47,14 @@ async function main() {
   });
   if (!mensFellowship) throw new Error("Men's Fellowship group not found at founder's local church");
 
-  const existingMembership = await prisma.groupMembership.findUnique({
+  const joinedGroupAt = new Date(2014, 3, 1);
+  const probationEndsAt = new Date(2014, 6, 1);
+  await prisma.groupMembership.upsert({
     where: { memberId_groupId: { memberId: founder.id, groupId: mensFellowship.id } },
+    create: { memberId: founder.id, groupId: mensFellowship.id, joinedGroupAt, probationEndsAt, status: "ACTIVE" },
+    update: { joinedGroupAt, probationEndsAt, status: "ACTIVE" },
   });
-  if (existingMembership) {
-    console.log("Founder already has a Men's Fellowship membership - skipping.");
-  } else {
-    const joinedGroupAt = new Date(2016, 4, 1);
-    const probationEndsAt = new Date(2016, 7, 1);
-    await prisma.groupMembership.create({
-      data: {
-        memberId: founder.id,
-        groupId: mensFellowship.id,
-        joinedGroupAt,
-        probationEndsAt,
-        status: "ACTIVE",
-      },
-    });
-    console.log("Added founder to Men's Fellowship (ACTIVE, joined 2016-05-01).");
-  }
+  console.log("Men's Fellowship membership set (ACTIVE, joined 2014-04-01).");
 }
 
 main()
