@@ -22,10 +22,17 @@ interface MemberRow {
  * each role can reach, so only Super Admin's tree ever spans past a
  * single parish.
  */
+interface SelectedChurch {
+  id: string;
+  name: string;
+  cessTarget: number | null;
+  cessThisMonth: number;
+}
+
 export function MembersTab() {
   const [hierarchyRoots, setHierarchyRoots] = useState<RollupNode[] | null>(null);
   const [hierarchyError, setHierarchyError] = useState<string | null>(null);
-  const [selectedChurch, setSelectedChurch] = useState<{ id: string; name: string } | null>(null);
+  const [selectedChurch, setSelectedChurch] = useState<SelectedChurch | null>(null);
   const [view, setView] = useState<"members" | "children">("members");
 
   useEffect(() => {
@@ -42,7 +49,8 @@ export function MembersTab() {
 
   useEffect(() => {
     if (localChurchLeaves.length === 1 && !selectedChurch) {
-      setSelectedChurch({ id: localChurchLeaves[0].id, name: localChurchLeaves[0].name });
+      const leaf = localChurchLeaves[0];
+      setSelectedChurch({ id: leaf.id, name: leaf.name, cessTarget: leaf.cessTarget, cessThisMonth: leaf.cessThisMonth });
     }
   }, [localChurchLeaves, selectedChurch]);
 
@@ -70,7 +78,9 @@ export function MembersTab() {
               node={root}
               depth={0}
               selectedId={null}
-              onSelectLocalChurch={(node) => setSelectedChurch({ id: node.id, name: node.name })}
+              onSelectLocalChurch={(node) =>
+                setSelectedChurch({ id: node.id, name: node.name, cessTarget: node.cessTarget, cessThisMonth: node.cessThisMonth })
+              }
             />
           ))}
         </div>
@@ -92,6 +102,14 @@ export function MembersTab() {
               </button>
             )}
           </div>
+
+          <CessTargetCard
+            key={selectedChurch.id}
+            localChurchId={selectedChurch.id}
+            localChurchName={selectedChurch.name}
+            initialTarget={selectedChurch.cessTarget}
+            cessThisMonth={selectedChurch.cessThisMonth}
+          />
 
           <div className="mb-4 flex items-center gap-1 rounded-lg bg-gray-100 p-1">
             <button
@@ -118,6 +136,142 @@ export function MembersTab() {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+/**
+ * The monthly Cess quota is set per congregation (see set-cess-target
+ * route), not negotiated per member - one number for the whole church.
+ * Remounted (via a `key`) whenever the selected church changes, so it
+ * always starts from that church's own current target instead of
+ * carrying over stale local state from the previous one.
+ */
+function CessTargetCard({
+  localChurchId,
+  localChurchName,
+  initialTarget,
+  cessThisMonth,
+}: {
+  localChurchId: string;
+  localChurchName: string;
+  initialTarget: number | null;
+  cessThisMonth: number;
+}) {
+  const [target, setTarget] = useState<number | null>(initialTarget);
+  const [editing, setEditing] = useState(false);
+  const [input, setInput] = useState(initialTarget !== null ? String(initialTarget) : "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    const amount = input.trim() ? Number(input) : null;
+    if (input.trim() && (!Number.isFinite(amount) || (amount as number) <= 0)) {
+      setError("Enter a valid quota amount");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    const res = await fetch(`/api/admin/local-churches/${localChurchId}/set-cess-target`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cessTargetAmount: amount }),
+    });
+    const body = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) {
+      setError(body?.error || "Failed to update Cess target");
+      return;
+    }
+    setTarget(body.cessTargetAmount);
+    setEditing(false);
+  }
+
+  async function clearTarget() {
+    if (!window.confirm(`Clear the Cess quota for ${localChurchName}?`)) return;
+    setBusy(true);
+    setError(null);
+    const res = await fetch(`/api/admin/local-churches/${localChurchId}/set-cess-target`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cessTargetAmount: null }),
+    });
+    const body = await res.json().catch(() => ({}));
+    setBusy(false);
+    if (!res.ok) {
+      setError(body?.error || "Failed to clear Cess target");
+      return;
+    }
+    setTarget(null);
+    setInput("");
+    setEditing(false);
+  }
+
+  return (
+    <div className="mb-4 rounded-lg border border-gray-100 bg-gray-50 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Cess Target · {localChurchName}</p>
+          <p className="mt-1 text-sm text-gray-700">
+            This month so far:{" "}
+            <span className="font-mono font-bold text-[#024424]">KES {cessThisMonth.toLocaleString()}</span>
+            {target !== null && <span className="text-gray-400"> / {target.toLocaleString()}</span>}
+          </p>
+          {target === null && <p className="mt-0.5 text-xs text-gray-400">No monthly quota set yet.</p>}
+        </div>
+        {!editing && (
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-[#024424] hover:bg-gray-50"
+          >
+            {target === null ? "Set Target" : "Edit Target"}
+          </button>
+        )}
+      </div>
+
+      {editing && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Monthly quota (KES)"
+            inputMode="decimal"
+            className="w-48 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-mono text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#024424]"
+          />
+          <button
+            type="button"
+            onClick={save}
+            disabled={busy}
+            className="rounded-lg bg-[#024424] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#01331a] disabled:opacity-50"
+          >
+            {busy ? "Saving..." : "Save"}
+          </button>
+          {target !== null && (
+            <button
+              type="button"
+              onClick={clearTarget}
+              disabled={busy}
+              className="text-xs font-bold text-[#B22222] hover:underline disabled:opacity-50"
+            >
+              Clear Target
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              setEditing(false);
+              setInput(target !== null ? String(target) : "");
+              setError(null);
+            }}
+            className="text-xs font-bold text-gray-400 hover:text-gray-600"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {error && <p className="mt-2 text-xs text-[#B22222]">{error}</p>}
     </div>
   );
 }
