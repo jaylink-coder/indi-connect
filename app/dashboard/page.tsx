@@ -70,43 +70,20 @@ const HERITAGE = {
     "A.I.P.C.A. wasn't founded as a neutral religious brand. It grew out of the 1920s Gikuyu nationalist movement, as the spiritual wing of the Kikuyu Independent Schools Association - Kenyans building their own churches and schools, free of colonial control. When the State of Emergency was declared in 1952, the Church was proscribed and its premises closed, seen by the colonial government as grounds for the freedom movement. Today's largest indigenous church in Africa was born out of that fight for African dignity and self-rule.",
 };
 
-// A first draft of milestone TYPES, not real per-member records - proposed
-// for a real AIPCA member to confirm, correct, or reject before this ever
-// tracks anyone's actual data. No dates/names/completion status are shown
-// for anyone, since none of this has been confirmed as real yet.
-//
-// Grouped in three tiers borrowed structurally from the Catholic Church's
-// three sacrament families (Initiation / Healing / Service of Communion) -
-// become, grow, serve - without claiming A.I.P.C.A. follows Catholic
-// doctrine. This is a shape borrowed from a well-documented model, not
-// content borrowed from it. The "Serving" tier isn't hypothetical: it's the
-// same MemberPosition system already powering the admin padlock (see
-// lib/permissions.ts) - a leadership position IS a milestone, just one we
-// already track for real.
-const MILESTONE_TIERS = [
-  {
-    tier: "Becoming a Member",
-    milestones: [
-      { icon: "🙏", title: "Salvation (Wokovu)", note: "The turn every other milestone follows from", highlight: true },
-      { icon: "💧", title: "Water Baptism", note: "Full immersion, per Pentecostal practice", highlight: true },
-      { icon: "✝️", title: "Confirmation", note: "Unconfirmed whether A.I.P.C.A. observes this", highlight: false },
-    ],
-  },
-  {
-    tier: "Growing as a Member",
-    milestones: [
-      { icon: "📖", title: "Discipleship / Bible Study", note: "Unconfirmed - what does A.I.P.C.A. call this?", highlight: false },
-      { icon: "🤝", title: "Joining a Fellowship", note: "e.g. Men's or Women's Fellowship", highlight: false },
-    ],
-  },
-  {
-    tier: "Serving as a Member",
-    milestones: [
-      { icon: "⛪", title: "Commissioned to a Ministry", note: "e.g. choir, ushering, Sunday school", highlight: false },
-      { icon: "🗝️", title: "Holding a Leadership Position", note: "Already tracked for real - see admin panel", highlight: true },
-    ],
-  },
-];
+interface MyMilestone {
+  key: string;
+  tier: string;
+  title: string;
+  icon: string;
+  note: string;
+  achievedAt: string | null;
+}
+
+interface MyMilestonesResponse {
+  milestones: MyMilestone[];
+  achievedCount: number;
+  totalCount: number;
+}
 
 interface MyGroupMembership {
   id: string;
@@ -194,6 +171,7 @@ export default function MemberDashboardPage() {
   const [loadError, setLoadError] = useState(false);
   const [openAccount, setOpenAccount] = useState<AccountCategory | null>(null);
   const [myGroups, setMyGroups] = useState<MyGroupMembership[] | null>(null);
+  const [myMilestones, setMyMilestones] = useState<MyMilestonesResponse | null>(null);
   const [activeGroup, setActiveGroup] = useState<GroupId>(NAV_GROUPS[0].id);
   const [activeTab, setActiveTab] = useState<TabId>(NAV_GROUPS[0].tabs[0].id);
 
@@ -213,6 +191,10 @@ export default function MemberDashboardPage() {
       .then((res) => (res.ok ? res.json() : []))
       .then(setMyGroups)
       .catch(() => setMyGroups([]));
+    fetch("/api/member/milestones")
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then(setMyMilestones)
+      .catch(() => setMyMilestones(null));
     loadSummary();
   }, [loadSummary]);
 
@@ -288,6 +270,65 @@ export default function MemberDashboardPage() {
 
           {activeTab === "overview" && (
             <div className="space-y-6">
+              <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+                <div className="mb-4 border-b pb-3">
+                  <h3 className="text-base font-bold text-[#024424]">Welcome, {data.member.name.split(" ")[0]}</h3>
+                  <p className="mt-0.5 text-xs text-gray-500">A snapshot of your standing as a member - see any section's full detail from the left.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+                  <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
+                    <p className="text-xs font-semibold text-gray-500">Total Given</p>
+                    <p className="mt-1 font-mono text-lg font-black text-[#024424]">KES {data.totalContributed.toLocaleString()}</p>
+                    <p className="mt-0.5 text-[10px] text-gray-400">All-time (Finance)</p>
+                  </div>
+                  <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
+                    <p className="text-xs font-semibold text-gray-500">Cess This Month</p>
+                    <p className="mt-1 font-mono text-lg font-black text-[#024424]">KES {data.cessThisMonth.toLocaleString()}</p>
+                    <p className="mt-0.5 text-[10px] text-gray-400">
+                      {data.cessTarget !== null ? `of KES ${data.cessTarget.toLocaleString()} quota` : "No quota set"}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
+                    <p className="text-xs font-semibold text-gray-500">Projects Supported</p>
+                    <p className="mt-1 font-mono text-lg font-black text-[#024424]">{data.projects.length}</p>
+                    <p className="mt-0.5 text-[10px] text-gray-400">Finance</p>
+                  </div>
+                  <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
+                    <p className="text-xs font-semibold text-gray-500">Groups &amp; Fellowships</p>
+                    <p className="mt-1 font-mono text-lg font-black text-[#024424]">{myGroups?.length ?? "-"}</p>
+                    <p className="mt-0.5 text-[10px] text-gray-400">Groups</p>
+                  </div>
+                  <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
+                    <p className="text-xs font-semibold text-gray-500">Milestones</p>
+                    <p className="mt-1 font-mono text-lg font-black text-[#024424]">
+                      {myMilestones ? `${myMilestones.achievedCount}/${myMilestones.totalCount}` : "-"}
+                    </p>
+                    <p className="mt-0.5 text-[10px] text-gray-400">achieved</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+                <div className="mb-3 flex items-center justify-between border-b pb-3">
+                  <h3 className="text-base font-bold text-[#024424]">Recent Giving</h3>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Full history under Finance</span>
+                </div>
+                <div className="space-y-2">
+                  {data.recentContributions.length === 0 && (
+                    <p className="py-4 text-center text-xs text-gray-400">No contributions recorded yet.</p>
+                  )}
+                  {data.recentContributions.slice(0, 3).map((offering) => (
+                    <div key={offering.id} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 p-3">
+                      <div>
+                        <p className="text-sm font-bold text-gray-900">{offering.type}</p>
+                        <p className="font-mono text-[10px] text-gray-400">{new Date(offering.date).toLocaleDateString()}</p>
+                      </div>
+                      <span className="font-mono text-sm font-black text-gray-900">KES {offering.amount.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
                 <h3 className="mb-3 text-base font-bold text-[#024424]">My Profile</h3>
                 <div className="rounded-lg border border-gray-100 bg-[#F8FAF8] p-4">
@@ -500,36 +541,53 @@ export default function MemberDashboardPage() {
 
           {activeTab === "milestones" && (
             <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-              <h3 className="mb-1 text-base font-bold text-[#024424]">Spiritual Milestones</h3>
-              <p className="mb-4 border-b pb-3 text-[11px] italic text-gray-500">
-                Every member&apos;s walk has a shape. Here&apos;s a first draft of what that journey might look
-                like - help us get it right.
-              </p>
-              <div className="space-y-5">
-                {MILESTONE_TIERS.map((group) => (
-                  <div key={group.tier}>
-                    <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-[#8a6d1a]">{group.tier}</p>
-                    <div className="ml-2.5 space-y-4 border-l border-gray-200 pl-5">
-                      {group.milestones.map((milestone) => (
-                        <div key={milestone.title} className="relative text-xs">
-                          <span
-                            className={`absolute -left-[27px] top-0 flex h-4 w-4 items-center justify-center rounded-full border-2 text-[9px] leading-none ${
-                              milestone.highlight ? "border-[#D4AF37] bg-[#D4AF37] text-white" : "border-gray-300 bg-white"
-                            }`}
-                          >
-                            {milestone.highlight ? "★" : ""}
-                          </span>
-                          <p className={`text-sm font-bold ${milestone.highlight ? "text-[#024424]" : "text-gray-700"}`}>
-                            <span className="mr-1">{milestone.icon}</span>
-                            {milestone.title}
-                          </p>
-                          <p className="mt-0.5 text-[11px] text-gray-400">{milestone.note}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+              <div className="mb-4 flex items-center justify-between border-b pb-3">
+                <h3 className="text-base font-bold text-[#024424]">Spiritual Milestones</h3>
+                {myMilestones && (
+                  <span className="rounded-full bg-green-50 px-2.5 py-1 text-xs font-bold text-green-700">
+                    {myMilestones.achievedCount} of {myMilestones.totalCount} achieved
+                  </span>
+                )}
               </div>
+
+              {!myMilestones && <p className="py-6 text-center text-xs text-gray-400">Loading...</p>}
+
+              {myMilestones && (
+                <div className="space-y-5">
+                  {Array.from(new Set(myMilestones.milestones.map((m) => m.tier))).map((tier) => (
+                    <div key={tier}>
+                      <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-[#8a6d1a]">{tier}</p>
+                      <div className="ml-2.5 space-y-4 border-l border-gray-200 pl-5">
+                        {myMilestones.milestones
+                          .filter((m) => m.tier === tier)
+                          .map((milestone) => {
+                            const achieved = milestone.achievedAt !== null;
+                            return (
+                              <div key={milestone.key} className="relative text-xs">
+                                <span
+                                  className={`absolute -left-[27px] top-0 flex h-4 w-4 items-center justify-center rounded-full border-2 text-[9px] leading-none ${
+                                    achieved ? "border-[#D4AF37] bg-[#D4AF37] text-white" : "border-gray-300 bg-white"
+                                  }`}
+                                >
+                                  {achieved ? "★" : ""}
+                                </span>
+                                <p className={`text-sm font-bold ${achieved ? "text-[#024424]" : "text-gray-700"}`}>
+                                  <span className="mr-1">{milestone.icon}</span>
+                                  {milestone.title}
+                                </p>
+                                <p className="mt-0.5 text-[11px] text-gray-400">
+                                  {achieved
+                                    ? `Achieved ${new Date(milestone.achievedAt!).toLocaleDateString("en-GB")}`
+                                    : milestone.note}
+                                </p>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
