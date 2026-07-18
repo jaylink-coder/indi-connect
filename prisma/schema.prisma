@@ -25,8 +25,16 @@ enum FundCategory {
   SADAKA
 }
 
+/// PLANNED -> ACTIVE -> COMPLETED is the normal path; STALLED covers a
+/// paused/stuck project (the same category government project registers
+/// track and audit separately from "ongoing"). Only ACTIVE projects accept
+/// contributions via the public payment picker (see /api/projects) - a
+/// PLANNED or STALLED project is visible in the admin panel but not yet
+/// (or no longer, for now) open for giving.
 enum ProjectStatus {
+  PLANNED
   ACTIVE
+  STALLED
   COMPLETED
   CANCELLED
 }
@@ -475,6 +483,8 @@ model Project {
   scopeId        String
   name           String
   description    String?
+  location       String?
+  leadContact    String?
   targetAmount   Decimal            @db.Decimal(12, 2)
   status         ProjectStatus      @default(ACTIVE)
   startDate      DateTime           @default(now())
@@ -487,6 +497,11 @@ model Project {
   @@index([scopeTier, scopeId])
 }
 
+/// A phase of a Project's implementation plan (Foundation, Walls, Roofing...)
+/// - the "concrete structure" a government project register shows: dated,
+/// budgeted stages marked complete one at a time, not a single lump status.
+/// completed is toggled directly by a leader, never inferred from money
+/// raised - Contribution has no per-milestone link.
 model ProjectMilestone {
   id           String    @id @default(uuid())
   projectId    String
@@ -498,6 +513,8 @@ model ProjectMilestone {
   completed    Boolean   @default(false)
   completedAt  DateTime?
   order        Int       @default(0)
+
+  @@index([projectId])
 }
 
 /// Same scopeTier/scopeId pattern as Project - a welfare case can be raised

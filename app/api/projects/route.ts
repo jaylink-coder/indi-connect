@@ -4,7 +4,9 @@ import { prisma } from "@/lib/db";
 import { getMemberScopeChain, getScopesForPermission } from "@/lib/hierarchy";
 import { getMemberAccess, hasAccess } from "@/lib/permissions";
 import { getCurrentMemberId } from "@/lib/session";
-import type { HierarchyTier } from "@prisma/client";
+import type { HierarchyTier, ProjectStatus } from "@prisma/client";
+
+const CREATABLE_STATUSES: ProjectStatus[] = ["PLANNED", "ACTIVE"];
 
 /**
  * Lists projects a signed-in member can see. By default (the payment
@@ -48,7 +50,10 @@ export async function GET(request: Request) {
       ...statusFilter,
       OR: scopeFilter,
     },
-    include: { contributions: { select: { amount: true } } },
+    include: {
+      contributions: { select: { amount: true } },
+      milestones: { orderBy: { order: "asc" } },
+    },
     orderBy: { startDate: "desc" },
   });
 
@@ -56,10 +61,24 @@ export async function GET(request: Request) {
     id: project.id,
     name: project.name,
     description: project.description,
+    location: project.location,
+    leadContact: project.leadContact,
     scopeTier: project.scopeTier,
     status: project.status,
+    startDate: project.startDate,
+    endDate: project.endDate,
     targetAmount: Number(project.targetAmount),
     raisedAmount: project.contributions.reduce((sum, c) => sum + Number(c.amount), 0),
+    milestones: project.milestones.map((m) => ({
+      id: m.id,
+      title: m.title,
+      description: m.description,
+      targetAmount: m.targetAmount !== null ? Number(m.targetAmount) : null,
+      dueDate: m.dueDate,
+      completed: m.completed,
+      completedAt: m.completedAt,
+      order: m.order,
+    })),
   }));
 
   return NextResponse.json(formatted);
@@ -90,14 +109,20 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
   const name = typeof body?.name === "string" ? body.name.trim() : "";
   const description = typeof body?.description === "string" ? body.description.trim() : undefined;
+  const location = typeof body?.location === "string" && body.location.trim() ? body.location.trim() : undefined;
+  const leadContact = typeof body?.leadContact === "string" && body.leadContact.trim() ? body.leadContact.trim() : undefined;
   const targetAmount = Number(body?.targetAmount);
   const requestedScopeId = typeof body?.scopeId === "string" ? body.scopeId : scopes[0].id;
+  const requestedStatus = typeof body?.status === "string" ? body.status : "ACTIVE";
 
   if (!name) {
     return NextResponse.json({ error: "Project name is required" }, { status: 400 });
   }
   if (!Number.isFinite(targetAmount) || targetAmount <= 0) {
     return NextResponse.json({ error: "Enter a valid target amount" }, { status: 400 });
+  }
+  if (!CREATABLE_STATUSES.includes(requestedStatus as ProjectStatus)) {
+    return NextResponse.json({ error: "A new project must start Planned or Ongoing" }, { status: 400 });
   }
 
   const scope = scopes.find((s) => s.id === requestedScopeId);
@@ -109,7 +134,10 @@ export async function POST(request: Request) {
     data: {
       name,
       description,
+      location,
+      leadContact,
       targetAmount,
+      status: requestedStatus as ProjectStatus,
       scopeTier: scope.tier,
       scopeId: scope.id,
     },
