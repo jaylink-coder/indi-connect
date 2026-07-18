@@ -113,6 +113,75 @@ const GROUP_STATUS_STYLE: Record<MyGroupMembership["status"], string> = {
   SUSPENDED: "bg-red-50 text-[#B22222]",
 };
 
+const GIVING_CHART_CATEGORIES: { key: string; label: string }[] = [
+  { key: "TITHE", label: "Tithe" },
+  { key: "CESS", label: "Cess" },
+  { key: "CALL_REGISTRY", label: "Call Reg." },
+  { key: "OPERATIONS", label: "Ops" },
+  { key: "SADAKA", label: "Sadaka" },
+];
+
+/** All-time giving compared across categories - single hue (magnitude, not identity), direct value on hover, category names below double as the label so no legend is needed. */
+function GivingByCategoryChart({ byCategory }: { byCategory: Record<string, number> }) {
+  const items = GIVING_CHART_CATEGORIES.map((c) => ({ ...c, amount: byCategory[c.key] ?? 0 }));
+  const max = Math.max(...items.map((i) => i.amount), 1);
+
+  return (
+    <div>
+      <div className="flex items-end justify-between gap-2 rounded-lg bg-gray-50 p-3" style={{ height: 110 }}>
+        {items.map((it) => (
+          <div key={it.key} className="group relative flex h-full flex-1 flex-col items-center justify-end">
+            {it.amount > 0 && (
+              <div className="pointer-events-none absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-gray-900 px-1.5 py-0.5 text-[10px] font-bold text-white opacity-0 transition-opacity group-hover:opacity-100">
+                KES {it.amount.toLocaleString()}
+              </div>
+            )}
+            <div
+              className="w-full max-w-[28px] rounded-t bg-[#024424] transition-opacity group-hover:opacity-80"
+              style={{ height: `${Math.max((it.amount / max) * 100, it.amount > 0 ? 6 : 0)}%` }}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="mt-1 flex justify-between gap-2">
+        {items.map((it) => (
+          <span key={it.key} className="flex-1 text-center text-[10px] font-semibold text-gray-400">
+            {it.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Last N Sunday services as a status strip - Present/Absent is state, not identity, so it uses the reserved good/critical status colors with a legend (never color-alone). Oldest to newest, left to right. */
+function AttendanceSnapshot({ recent }: { recent: MyAttendanceRecord[] }) {
+  const ordered = [...recent].reverse();
+
+  return (
+    <div>
+      <div className="flex items-center gap-1.5">
+        {ordered.map((r) => (
+          <div key={`${r.serviceDate}-${r.serviceType}`} className="group relative flex-1">
+            <div className="pointer-events-none absolute -top-8 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded bg-gray-900 px-1.5 py-0.5 text-[10px] font-bold text-white opacity-0 transition-opacity group-hover:opacity-100">
+              {new Date(r.serviceDate).toLocaleDateString()} - {r.status === "PRESENT" ? "Present" : "Absent"}
+            </div>
+            <div className={`h-8 rounded ${r.status === "PRESENT" ? "bg-green-600" : "bg-[#B22222]"}`} />
+          </div>
+        ))}
+      </div>
+      <div className="mt-2 flex items-center gap-4 text-[10px] font-semibold text-gray-500">
+        <span className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-green-600" /> Present
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-[#B22222]" /> Absent
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function CessQuotaCard({ data, onPaid }: { data: AccountSummary; onPaid: () => void }) {
   const { cessTarget, cessThisMonth } = data;
   const monthLabel = new Date().toLocaleDateString("en-US", { month: "long" });
@@ -348,6 +417,28 @@ export default function MemberDashboardPage() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+                  <h3 className="mb-3 border-b pb-3 text-base font-bold text-[#024424]">Giving by Category</h3>
+                  <GivingByCategoryChart byCategory={data.byCategory} />
+                </div>
+                <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+                  <div className="mb-3 flex items-center justify-between border-b pb-3">
+                    <h3 className="text-base font-bold text-[#024424]">Attendance Snapshot</h3>
+                    {myAttendance && myAttendance.attendanceRate !== null && (
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                        {myAttendance.attendanceRate}% overall
+                      </span>
+                    )}
+                  </div>
+                  {!myAttendance && <p className="py-4 text-center text-xs text-gray-400">Loading...</p>}
+                  {myAttendance && myAttendance.recent.length === 0 && (
+                    <p className="py-4 text-center text-xs text-gray-400">No services tracked yet.</p>
+                  )}
+                  {myAttendance && myAttendance.recent.length > 0 && <AttendanceSnapshot recent={myAttendance.recent} />}
+                </div>
+              </div>
+
               <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
                 <h3 className="mb-3 text-base font-bold text-[#024424]">My Profile</h3>
                 <div className="rounded-lg border border-gray-100 bg-[#F8FAF8] p-4">
@@ -360,25 +451,16 @@ export default function MemberDashboardPage() {
                     <span className="font-bold text-[#024424]">{data.member.localChurchName}</span>
                   </div>
                 </div>
-              </div>
-
-              {isLeader && (
-                <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-                  <h3 className="mb-4 border-b pb-3 text-base font-bold text-[#024424]">Leader Tools</h3>
-                  <p className="mb-3 text-xs text-gray-500">A simple attendance check for Sunday worship and midweek prayer.</p>
-                  <ul className="space-y-2 text-sm text-gray-700">
-                    <li>• Mark the Sunday attendance list</li>
-                    <li>• Confirm special prayer meeting records</li>
-                    <li>• Share updates with the parish office</li>
-                  </ul>
+                {isLeader && (
                   <button
                     onClick={() => router.push("/admin")}
-                    className="mt-4 w-full rounded-lg bg-[#024424] px-4 py-2 text-sm font-bold text-white hover:bg-[#01331a]"
+                    className="mt-3 flex w-full items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-2.5 text-xs font-bold text-[#024424] hover:bg-gray-100"
                   >
-                    Open Attendance Register
+                    <span>You hold a leadership position - open the admin panel</span>
+                    <span aria-hidden>&rarr;</span>
                   </button>
-                </div>
-              )}
+                )}
+              </div>
 
               <div className="rounded-xl border border-[#D4AF37]/30 bg-[#F4EFDE] p-6 shadow-sm">
                 <h3 className="mb-2 text-base font-bold text-[#024424]">Why We Are A.I.P.C.A.</h3>
