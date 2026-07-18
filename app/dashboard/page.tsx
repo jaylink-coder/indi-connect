@@ -11,6 +11,41 @@ import type { AccountSummary } from "@/lib/accounts";
 
 type AccountCategory = "TITHE" | "SADAKA" | "CALL_REGISTRY" | "OPERATIONS";
 
+type GroupId = "overview" | "finance" | "milestones" | "groups";
+type TabId = "overview" | "accounts" | "giving" | "projects" | "milestones" | "groups";
+
+interface TabDef {
+  id: TabId;
+  label: string;
+}
+
+interface NavGroup {
+  id: GroupId;
+  label: string;
+  tabs: TabDef[];
+}
+
+/**
+ * Same two-level nav as the admin panel: a left sidebar for the main
+ * sections (Overview, Finance, Milestones, Groups), with each section's
+ * own tabs as a top pill sub-nav. Every member sees the same four
+ * sections - unlike the admin panel, nothing here is permission-gated.
+ */
+const NAV_GROUPS: NavGroup[] = [
+  { id: "overview", label: "Overview", tabs: [{ id: "overview", label: "Home" }] },
+  {
+    id: "finance",
+    label: "Finance",
+    tabs: [
+      { id: "accounts", label: "My Accounts" },
+      { id: "giving", label: "Giving History" },
+      { id: "projects", label: "Projects & Welfare" },
+    ],
+  },
+  { id: "milestones", label: "Milestones", tabs: [{ id: "milestones", label: "Spiritual Milestones" }] },
+  { id: "groups", label: "Groups", tabs: [{ id: "groups", label: "My Groups & Fellowships" }] },
+];
+
 // Cess Quota gets its own progress-bar treatment below (it's the one
 // category with a real, admin-assigned monthly target) - these four are
 // freewill/collective giving with no personal target to compare against,
@@ -72,6 +107,20 @@ const MILESTONE_TIERS = [
     ],
   },
 ];
+
+interface MyGroupMembership {
+  id: string;
+  groupName: string;
+  category: string;
+  status: "PROBATION" | "ACTIVE" | "SUSPENDED";
+  joinedGroupAt: string;
+}
+
+const GROUP_STATUS_STYLE: Record<MyGroupMembership["status"], string> = {
+  PROBATION: "bg-amber-50 text-amber-700",
+  ACTIVE: "bg-green-50 text-[#024424]",
+  SUSPENDED: "bg-red-50 text-[#B22222]",
+};
 
 function CessQuotaCard({ data, onPaid }: { data: AccountSummary; onPaid: () => void }) {
   const { cessTarget, cessThisMonth } = data;
@@ -144,6 +193,9 @@ export default function MemberDashboardPage() {
   const [summary, setSummary] = useState<AccountSummary | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [openAccount, setOpenAccount] = useState<AccountCategory | null>(null);
+  const [myGroups, setMyGroups] = useState<MyGroupMembership[] | null>(null);
+  const [activeGroup, setActiveGroup] = useState<GroupId>(NAV_GROUPS[0].id);
+  const [activeTab, setActiveTab] = useState<TabId>(NAV_GROUPS[0].tabs[0].id);
 
   const loadSummary = useCallback(() => {
     fetch("/api/member/dashboard-summary")
@@ -157,6 +209,10 @@ export default function MemberDashboardPage() {
       .then((res) => res.json())
       .then((body) => setIsLeader(Boolean(body.isLeader)))
       .catch(() => setIsLeader(false));
+    fetch("/api/member/groups")
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setMyGroups)
+      .catch(() => setMyGroups([]));
     loadSummary();
   }, [loadSummary]);
 
@@ -169,6 +225,13 @@ export default function MemberDashboardPage() {
   }
 
   const data = summary;
+
+  function selectGroup(group: NavGroup) {
+    setActiveGroup(group.id);
+    setActiveTab(group.tabs[0].id);
+  }
+
+  const currentGroup = NAV_GROUPS.find((g) => g.id === activeGroup)!;
 
   return (
     <div className="min-h-screen bg-[#F8FAF8] pb-12 text-gray-900">
@@ -191,239 +254,313 @@ export default function MemberDashboardPage() {
         </div>
       </div>
 
-      <main className="mx-auto mt-8 grid max-w-6xl grid-cols-1 gap-6 px-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h3 className="mb-4 border-b pb-3 text-base font-bold text-[#024424]">My Accounts</h3>
+      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 md:flex-row md:px-6 md:py-8">
+        <nav className="flex gap-2 overflow-x-auto pb-1 md:w-56 md:flex-none md:flex-col md:gap-1 md:overflow-visible md:pb-0">
+          {NAV_GROUPS.map((group) => (
+            <button
+              key={group.id}
+              onClick={() => selectGroup(group)}
+              className={`whitespace-nowrap rounded-lg px-4 py-2.5 text-left text-sm font-bold transition-colors ${
+                activeGroup === group.id ? "bg-[#024424] text-white shadow-sm" : "text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              {group.label}
+            </button>
+          ))}
+        </nav>
 
-            <CessQuotaCard data={data} onPaid={loadSummary} />
-
-            <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
-              {ACCOUNT_CATEGORIES.map((account) => (
-                <div
-                  key={account.category}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setOpenAccount(account.category)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setOpenAccount(account.category);
-                    }
-                  }}
-                  className="cursor-pointer rounded-lg border border-gray-100 bg-gray-50 p-4 text-left transition-colors hover:border-[#024424]/30 hover:bg-white"
+        <main className="min-w-0 flex-1 space-y-6">
+          {currentGroup.tabs.length > 1 && (
+            <div className="flex gap-2 border-b border-gray-200">
+              {currentGroup.tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-4 py-2 text-sm font-semibold transition-colors ${
+                    activeTab === tab.id ? "border-b-2 border-[#024424] text-[#024424]" : "text-gray-500 hover:text-gray-700"
+                  }`}
                 >
-                  <p className="text-xs font-semibold text-gray-500">{account.label}</p>
-                  <p className="mt-1 font-mono text-lg font-black text-[#024424]">
-                    KES {(data.byCategory[account.category] ?? 0).toLocaleString()}
-                  </p>
-                  <p className="mt-1 text-[11px] leading-snug text-gray-400">{account.description}</p>
-                  <div className="mt-3" onClick={(e) => e.stopPropagation()}>
-                    <MakePaymentDialog
-                      defaultPhone={data.member.phone}
-                      defaultIdentifier={data.member.membershipNo}
-                      initialCategory={account.category}
-                      lockCategory
-                      triggerLabel="Make Payment"
-                      triggerClassName="w-full rounded-lg bg-[#024424] px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-[#01331a]"
-                      onSuccess={loadSummary}
-                    />
-                  </div>
-                </div>
+                  {tab.label}
+                </button>
               ))}
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-            <div className="mb-4 flex items-center justify-between border-b pb-3">
-              <h3 className="text-base font-bold text-[#024424]">My Recent Giving (Mĩhothi)</h3>
-              <span className="rounded-full bg-green-50 px-2.5 py-1 text-xs font-bold text-green-700">
-                Total Given: KES {data.totalContributed.toLocaleString()}
-              </span>
-            </div>
-            <div className="space-y-3">
-              {data.recentContributions.length === 0 && (
-                <p className="py-4 text-center text-xs text-gray-400">No contributions recorded yet.</p>
-              )}
-              {data.recentContributions.map((offering) => (
-                <div key={offering.id} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 p-3">
-                  <div>
-                    <p className="text-sm font-bold text-gray-900">{offering.type}</p>
-                    <p className="font-mono text-[10px] text-gray-400">
-                      M-Pesa: {offering.receipt} • {new Date(offering.date).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <span className="font-mono text-sm font-black text-gray-900">KES {offering.amount.toLocaleString()}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h3 className="mb-4 border-b pb-3 text-base font-bold text-[#024424]">My Attendance History (Mahudhurio)</h3>
-            <p className="py-6 text-center text-xs text-gray-400">
-              Attendance tracking isn&apos;t wired up yet - this will show your real Call Registry / Sunday
-              attendance record once it&apos;s built.
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-[#D4AF37]/30 bg-[#F4EFDE] p-6 shadow-sm">
-            <h3 className="mb-2 text-base font-bold text-[#024424]">Why We Are A.I.P.C.A.</h3>
-            <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-[#8a6d1a]">Founded {HERITAGE.founded}</p>
-            <p className="text-sm leading-relaxed text-gray-700">{HERITAGE.blurb}</p>
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h3 className="mb-3 text-base font-bold text-[#024424]">My Profile</h3>
-            <div className="rounded-lg border border-gray-100 bg-[#F8FAF8] p-4">
-              <p className="text-sm font-semibold text-gray-900">{data.member.name}</p>
-              <p className="mt-1 text-xs text-gray-500">Member No: {data.member.membershipNo}</p>
-              <p className="mt-1 text-xs text-gray-500">Diocese: {data.member.dioceseName}</p>
-              <p className="mt-1 text-xs text-gray-500">Parish: {data.member.parishName}</p>
-              <div className="mt-3 flex items-center justify-between rounded-lg bg-white px-3 py-2 text-sm">
-                <span className="text-gray-500">Local Church</span>
-                <span className="font-bold text-[#024424]">{data.member.localChurchName}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h3 className="mb-4 border-b pb-3 text-base font-bold text-[#024424]">Support a Project or Welfare Case</h3>
-            <p className="mb-4 text-xs text-gray-500">
-              Tithe, Sadaka, Call Registry, Operations, and Cess each have their own Make Payment button above -
-              this one&apos;s for a specific Church Project or Welfare Case instead.
-            </p>
-            <MakePaymentDialog
-              defaultPhone={data.member.phone}
-              defaultIdentifier={data.member.membershipNo}
-              initialCategory="PROJECT"
-              categories={["PROJECT", "WELFARE"]}
-              onSuccess={loadSummary}
-            />
-          </div>
-
-          {isLeader && (
-            <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-              <h3 className="mb-4 border-b pb-3 text-base font-bold text-[#024424]">Leader Tools</h3>
-              <p className="mb-3 text-xs text-gray-500">A simple attendance check for Sunday worship and midweek prayer.</p>
-              <ul className="space-y-2 text-sm text-gray-700">
-                <li>• Mark the Sunday attendance list</li>
-                <li>• Confirm special prayer meeting records</li>
-                <li>• Share updates with the parish office</li>
-              </ul>
-              <button onClick={() => router.push("/admin")} className="mt-4 w-full rounded-lg bg-[#024424] px-4 py-2 text-sm font-bold text-white hover:bg-[#01331a]">
-                Open Attendance Register
-              </button>
             </div>
           )}
 
-          <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h3 className="mb-4 border-b pb-3 text-base font-bold text-[#024424]">Projects I&apos;ve Supported (Mĩako)</h3>
-            {data.projects.length === 0 && (
-              <p className="text-xs text-gray-400">You haven&apos;t contributed to a project yet.</p>
-            )}
-            <div className="space-y-5">
-              {data.projects.map((proj) => {
-                const progressPercentage = proj.target > 0 ? (proj.raised / proj.target) * 100 : 0;
-                const standingPercentage = proj.assignedAmount ? Math.min((proj.myTotalInput / proj.assignedAmount) * 100, 100) : 0;
-                const balance = proj.assignedAmount !== null ? Math.max(proj.assignedAmount - proj.myTotalInput, 0) : null;
-                return (
-                  <div key={proj.id} className="space-y-3">
-                    <div>
-                      <h4 className="text-sm font-bold leading-snug text-gray-900">{proj.name}</h4>
-                    </div>
-
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
-                      <div className="h-full rounded-full bg-[#024424]" style={{ width: `${Math.min(progressPercentage, 100)}%` }} />
-                    </div>
-                    <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                      <span>Raised: {progressPercentage.toFixed(0)}%</span>
-                      <span>Target: KES {proj.target.toLocaleString()}</span>
-                    </div>
-
-                    {proj.velocity.status === "on_track" && proj.velocity.etaDate && (
-                      <p className="text-[10px] text-gray-400">
-                        At the current pace of giving, estimated to reach its target around{" "}
-                        <span className="font-bold text-gray-600">
-                          {new Date(proj.velocity.etaDate).toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
-                        </span>
-                        .
-                      </p>
-                    )}
-                    {proj.velocity.status === "stalled" && (
-                      <p className="text-[10px] text-gray-400">No giving in the last 30 days - no completion estimate yet.</p>
-                    )}
-
-                    {proj.assignedAmount !== null && (
-                      <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
-                        <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500">My Standing</p>
-                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
-                          <div
-                            className={`h-full rounded-full ${standingPercentage >= 100 ? "bg-green-600" : "bg-[#024424]"}`}
-                            style={{ width: `${standingPercentage}%` }}
-                          />
-                        </div>
-                        <div className="mt-2 flex flex-wrap justify-between gap-x-4 gap-y-1 font-mono text-[11px]">
-                          <span className="text-gray-500">
-                            Assigned: <span className="font-bold text-gray-700">KES {proj.assignedAmount.toLocaleString()}</span>
-                          </span>
-                          <span className="text-gray-500">
-                            Paid: <span className="font-bold text-[#024424]">KES {proj.myTotalInput.toLocaleString()}</span>
-                          </span>
-                          <span className="text-gray-500">
-                            Balance: <span className="font-bold text-[#B22222]">KES {(balance ?? 0).toLocaleString()}</span>
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                    {proj.assignedAmount === null && (
-                      <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 p-3 text-xs">
-                        <span className="font-medium text-gray-500">My Total Financial Input:</span>
-                        <span className="font-black text-gray-900">KES {proj.myTotalInput.toLocaleString()}</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
-            <h3 className="mb-1 text-base font-bold text-[#024424]">Spiritual Milestones</h3>
-            <p className="mb-4 border-b pb-3 text-[11px] italic text-gray-500">
-              Every member&apos;s walk has a shape. Here&apos;s a first draft of what that journey might look
-              like - help us get it right.
-            </p>
-            <div className="space-y-5">
-              {MILESTONE_TIERS.map((group) => (
-                <div key={group.tier}>
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-[#8a6d1a]">{group.tier}</p>
-                  <div className="ml-2.5 space-y-4 border-l border-gray-200 pl-5">
-                    {group.milestones.map((milestone) => (
-                      <div key={milestone.title} className="relative text-xs">
-                        <span
-                          className={`absolute -left-[27px] top-0 flex h-4 w-4 items-center justify-center rounded-full border-2 text-[9px] leading-none ${
-                            milestone.highlight ? "border-[#D4AF37] bg-[#D4AF37] text-white" : "border-gray-300 bg-white"
-                          }`}
-                        >
-                          {milestone.highlight ? "★" : ""}
-                        </span>
-                        <p className={`text-sm font-bold ${milestone.highlight ? "text-[#024424]" : "text-gray-700"}`}>
-                          <span className="mr-1">{milestone.icon}</span>
-                          {milestone.title}
-                        </p>
-                        <p className="mt-0.5 text-[11px] text-gray-400">{milestone.note}</p>
-                      </div>
-                    ))}
+          {activeTab === "overview" && (
+            <div className="space-y-6">
+              <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+                <h3 className="mb-3 text-base font-bold text-[#024424]">My Profile</h3>
+                <div className="rounded-lg border border-gray-100 bg-[#F8FAF8] p-4">
+                  <p className="text-sm font-semibold text-gray-900">{data.member.name}</p>
+                  <p className="mt-1 text-xs text-gray-500">Member No: {data.member.membershipNo}</p>
+                  <p className="mt-1 text-xs text-gray-500">Diocese: {data.member.dioceseName}</p>
+                  <p className="mt-1 text-xs text-gray-500">Parish: {data.member.parishName}</p>
+                  <div className="mt-3 flex items-center justify-between rounded-lg bg-white px-3 py-2 text-sm">
+                    <span className="text-gray-500">Local Church</span>
+                    <span className="font-bold text-[#024424]">{data.member.localChurchName}</span>
                   </div>
                 </div>
-              ))}
+              </div>
+
+              {isLeader && (
+                <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+                  <h3 className="mb-4 border-b pb-3 text-base font-bold text-[#024424]">Leader Tools</h3>
+                  <p className="mb-3 text-xs text-gray-500">A simple attendance check for Sunday worship and midweek prayer.</p>
+                  <ul className="space-y-2 text-sm text-gray-700">
+                    <li>• Mark the Sunday attendance list</li>
+                    <li>• Confirm special prayer meeting records</li>
+                    <li>• Share updates with the parish office</li>
+                  </ul>
+                  <button
+                    onClick={() => router.push("/admin")}
+                    className="mt-4 w-full rounded-lg bg-[#024424] px-4 py-2 text-sm font-bold text-white hover:bg-[#01331a]"
+                  >
+                    Open Attendance Register
+                  </button>
+                </div>
+              )}
+
+              <div className="rounded-xl border border-[#D4AF37]/30 bg-[#F4EFDE] p-6 shadow-sm">
+                <h3 className="mb-2 text-base font-bold text-[#024424]">Why We Are A.I.P.C.A.</h3>
+                <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-[#8a6d1a]">Founded {HERITAGE.founded}</p>
+                <p className="text-sm leading-relaxed text-gray-700">{HERITAGE.blurb}</p>
+              </div>
             </div>
-          </div>
-        </div>
-      </main>
+          )}
+
+          {activeTab === "accounts" && (
+            <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+              <h3 className="mb-4 border-b pb-3 text-base font-bold text-[#024424]">My Accounts</h3>
+
+              <CessQuotaCard data={data} onPaid={loadSummary} />
+
+              <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
+                {ACCOUNT_CATEGORIES.map((account) => (
+                  <div
+                    key={account.category}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setOpenAccount(account.category)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setOpenAccount(account.category);
+                      }
+                    }}
+                    className="cursor-pointer rounded-lg border border-gray-100 bg-gray-50 p-4 text-left transition-colors hover:border-[#024424]/30 hover:bg-white"
+                  >
+                    <p className="text-xs font-semibold text-gray-500">{account.label}</p>
+                    <p className="mt-1 font-mono text-lg font-black text-[#024424]">
+                      KES {(data.byCategory[account.category] ?? 0).toLocaleString()}
+                    </p>
+                    <p className="mt-1 text-[11px] leading-snug text-gray-400">{account.description}</p>
+                    <div className="mt-3" onClick={(e) => e.stopPropagation()}>
+                      <MakePaymentDialog
+                        defaultPhone={data.member.phone}
+                        defaultIdentifier={data.member.membershipNo}
+                        initialCategory={account.category}
+                        lockCategory
+                        triggerLabel="Make Payment"
+                        triggerClassName="w-full rounded-lg bg-[#024424] px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-[#01331a]"
+                        onSuccess={loadSummary}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === "giving" && (
+            <div className="space-y-6">
+              <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+                <div className="mb-4 flex items-center justify-between border-b pb-3">
+                  <h3 className="text-base font-bold text-[#024424]">My Recent Giving (Mĩhothi)</h3>
+                  <span className="rounded-full bg-green-50 px-2.5 py-1 text-xs font-bold text-green-700">
+                    Total Given: KES {data.totalContributed.toLocaleString()}
+                  </span>
+                </div>
+                <div className="space-y-3">
+                  {data.recentContributions.length === 0 && (
+                    <p className="py-4 text-center text-xs text-gray-400">No contributions recorded yet.</p>
+                  )}
+                  {data.recentContributions.map((offering) => (
+                    <div key={offering.id} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 p-3">
+                      <div>
+                        <p className="text-sm font-bold text-gray-900">{offering.type}</p>
+                        <p className="font-mono text-[10px] text-gray-400">
+                          M-Pesa: {offering.receipt} • {new Date(offering.date).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <span className="font-mono text-sm font-black text-gray-900">KES {offering.amount.toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+                <h3 className="mb-4 border-b pb-3 text-base font-bold text-[#024424]">My Attendance History (Mahudhurio)</h3>
+                <p className="py-6 text-center text-xs text-gray-400">
+                  Attendance tracking isn&apos;t wired up yet - this will show your real Call Registry / Sunday
+                  attendance record once it&apos;s built.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "projects" && (
+            <div className="space-y-6">
+              <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+                <h3 className="mb-4 border-b pb-3 text-base font-bold text-[#024424]">Support a Project or Welfare Case</h3>
+                <p className="mb-4 text-xs text-gray-500">
+                  Tithe, Sadaka, Call Registry, Operations, and Cess each have their own Make Payment button under
+                  My Accounts - this one&apos;s for a specific Church Project or Welfare Case instead.
+                </p>
+                <MakePaymentDialog
+                  defaultPhone={data.member.phone}
+                  defaultIdentifier={data.member.membershipNo}
+                  initialCategory="PROJECT"
+                  categories={["PROJECT", "WELFARE"]}
+                  onSuccess={loadSummary}
+                />
+              </div>
+
+              <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+                <h3 className="mb-4 border-b pb-3 text-base font-bold text-[#024424]">Projects I&apos;ve Supported (Mĩako)</h3>
+                {data.projects.length === 0 && (
+                  <p className="text-xs text-gray-400">You haven&apos;t contributed to a project yet.</p>
+                )}
+                <div className="space-y-5">
+                  {data.projects.map((proj) => {
+                    const progressPercentage = proj.target > 0 ? (proj.raised / proj.target) * 100 : 0;
+                    const standingPercentage = proj.assignedAmount ? Math.min((proj.myTotalInput / proj.assignedAmount) * 100, 100) : 0;
+                    const balance = proj.assignedAmount !== null ? Math.max(proj.assignedAmount - proj.myTotalInput, 0) : null;
+                    return (
+                      <div key={proj.id} className="space-y-3">
+                        <div>
+                          <h4 className="text-sm font-bold leading-snug text-gray-900">{proj.name}</h4>
+                        </div>
+
+                        <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+                          <div className="h-full rounded-full bg-[#024424]" style={{ width: `${Math.min(progressPercentage, 100)}%` }} />
+                        </div>
+                        <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                          <span>Raised: {progressPercentage.toFixed(0)}%</span>
+                          <span>Target: KES {proj.target.toLocaleString()}</span>
+                        </div>
+
+                        {proj.velocity.status === "on_track" && proj.velocity.etaDate && (
+                          <p className="text-[10px] text-gray-400">
+                            At the current pace of giving, estimated to reach its target around{" "}
+                            <span className="font-bold text-gray-600">
+                              {new Date(proj.velocity.etaDate).toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
+                            </span>
+                            .
+                          </p>
+                        )}
+                        {proj.velocity.status === "stalled" && (
+                          <p className="text-[10px] text-gray-400">No giving in the last 30 days - no completion estimate yet.</p>
+                        )}
+
+                        {proj.assignedAmount !== null && (
+                          <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+                            <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500">My Standing</p>
+                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+                              <div
+                                className={`h-full rounded-full ${standingPercentage >= 100 ? "bg-green-600" : "bg-[#024424]"}`}
+                                style={{ width: `${standingPercentage}%` }}
+                              />
+                            </div>
+                            <div className="mt-2 flex flex-wrap justify-between gap-x-4 gap-y-1 font-mono text-[11px]">
+                              <span className="text-gray-500">
+                                Assigned: <span className="font-bold text-gray-700">KES {proj.assignedAmount.toLocaleString()}</span>
+                              </span>
+                              <span className="text-gray-500">
+                                Paid: <span className="font-bold text-[#024424]">KES {proj.myTotalInput.toLocaleString()}</span>
+                              </span>
+                              <span className="text-gray-500">
+                                Balance: <span className="font-bold text-[#B22222]">KES {(balance ?? 0).toLocaleString()}</span>
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        {proj.assignedAmount === null && (
+                          <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 p-3 text-xs">
+                            <span className="font-medium text-gray-500">My Total Financial Input:</span>
+                            <span className="font-black text-gray-900">KES {proj.myTotalInput.toLocaleString()}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "milestones" && (
+            <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+              <h3 className="mb-1 text-base font-bold text-[#024424]">Spiritual Milestones</h3>
+              <p className="mb-4 border-b pb-3 text-[11px] italic text-gray-500">
+                Every member&apos;s walk has a shape. Here&apos;s a first draft of what that journey might look
+                like - help us get it right.
+              </p>
+              <div className="space-y-5">
+                {MILESTONE_TIERS.map((group) => (
+                  <div key={group.tier}>
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-[#8a6d1a]">{group.tier}</p>
+                    <div className="ml-2.5 space-y-4 border-l border-gray-200 pl-5">
+                      {group.milestones.map((milestone) => (
+                        <div key={milestone.title} className="relative text-xs">
+                          <span
+                            className={`absolute -left-[27px] top-0 flex h-4 w-4 items-center justify-center rounded-full border-2 text-[9px] leading-none ${
+                              milestone.highlight ? "border-[#D4AF37] bg-[#D4AF37] text-white" : "border-gray-300 bg-white"
+                            }`}
+                          >
+                            {milestone.highlight ? "★" : ""}
+                          </span>
+                          <p className={`text-sm font-bold ${milestone.highlight ? "text-[#024424]" : "text-gray-700"}`}>
+                            <span className="mr-1">{milestone.icon}</span>
+                            {milestone.title}
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-gray-400">{milestone.note}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === "groups" && (
+            <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm">
+              <h3 className="mb-4 border-b pb-3 text-base font-bold text-[#024424]">My Groups &amp; Fellowships</h3>
+              {!myGroups && <p className="py-6 text-center text-xs text-gray-400">Loading...</p>}
+              {myGroups && myGroups.length === 0 && (
+                <p className="py-6 text-center text-xs text-gray-400">
+                  You&apos;re not part of any group or fellowship yet - ask your local church leader to add you.
+                </p>
+              )}
+              {myGroups && myGroups.length > 0 && (
+                <div className="space-y-1.5">
+                  {myGroups.map((g) => (
+                    <div key={g.id} className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5 text-sm">
+                      <div>
+                        <p className="font-bold text-gray-900">{g.groupName}</p>
+                        <p className="text-[10px] text-gray-400">
+                          Joined {new Date(g.joinedGroupAt).toLocaleDateString("en-GB")}
+                        </p>
+                      </div>
+                      <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${GROUP_STATUS_STYLE[g.status]}`}>{g.status}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </main>
+      </div>
 
       {openAccount && (
         <AccountStatementModal
