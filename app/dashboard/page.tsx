@@ -327,6 +327,8 @@ export default function MemberDashboardPage() {
             <div className="space-y-5">
               {data.projects.map((proj) => {
                 const progressPercentage = proj.target > 0 ? (proj.raised / proj.target) * 100 : 0;
+                const standingPercentage = proj.assignedAmount ? Math.min((proj.myTotalInput / proj.assignedAmount) * 100, 100) : 0;
+                const balance = proj.assignedAmount !== null ? Math.max(proj.assignedAmount - proj.myTotalInput, 0) : null;
                 return (
                   <div key={proj.id} className="space-y-3">
                     <div>
@@ -341,10 +343,47 @@ export default function MemberDashboardPage() {
                       <span>Target: KES {proj.target.toLocaleString()}</span>
                     </div>
 
-                    <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 p-3 text-xs">
-                      <span className="font-medium text-gray-500">My Total Financial Input:</span>
-                      <span className="font-black text-gray-900">KES {proj.myTotalInput.toLocaleString()}</span>
-                    </div>
+                    {proj.velocity.status === "on_track" && proj.velocity.etaDate && (
+                      <p className="text-[10px] text-gray-400">
+                        At the current pace of giving, estimated to reach its target around{" "}
+                        <span className="font-bold text-gray-600">
+                          {new Date(proj.velocity.etaDate).toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
+                        </span>
+                        .
+                      </p>
+                    )}
+                    {proj.velocity.status === "stalled" && (
+                      <p className="text-[10px] text-gray-400">No giving in the last 30 days - no completion estimate yet.</p>
+                    )}
+
+                    {proj.assignedAmount !== null && (
+                      <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+                        <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500">My Standing</p>
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+                          <div
+                            className={`h-full rounded-full ${standingPercentage >= 100 ? "bg-green-600" : "bg-[#024424]"}`}
+                            style={{ width: `${standingPercentage}%` }}
+                          />
+                        </div>
+                        <div className="mt-2 flex flex-wrap justify-between gap-x-4 gap-y-1 font-mono text-[11px]">
+                          <span className="text-gray-500">
+                            Assigned: <span className="font-bold text-gray-700">KES {proj.assignedAmount.toLocaleString()}</span>
+                          </span>
+                          <span className="text-gray-500">
+                            Paid: <span className="font-bold text-[#024424]">KES {proj.myTotalInput.toLocaleString()}</span>
+                          </span>
+                          <span className="text-gray-500">
+                            Balance: <span className="font-bold text-[#B22222]">KES {(balance ?? 0).toLocaleString()}</span>
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    {proj.assignedAmount === null && (
+                      <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 p-3 text-xs">
+                        <span className="font-medium text-gray-500">My Total Financial Input:</span>
+                        <span className="font-black text-gray-900">KES {proj.myTotalInput.toLocaleString()}</span>
+                      </div>
+                    )}
                   </div>
                 );
               })}

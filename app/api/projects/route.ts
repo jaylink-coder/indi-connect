@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { getMemberScopeChain, getScopesForPermission } from "@/lib/hierarchy";
 import { getMemberAccess, hasAccess } from "@/lib/permissions";
 import { getCurrentMemberId } from "@/lib/session";
+import { estimateCompletion } from "@/lib/projectVelocity";
 import type { HierarchyTier, ProjectStatus } from "@prisma/client";
 
 const CREATABLE_STATUSES: ProjectStatus[] = ["PLANNED", "ACTIVE"];
@@ -51,35 +52,44 @@ export async function GET(request: Request) {
       OR: scopeFilter,
     },
     include: {
-      contributions: { select: { amount: true } },
+      contributions: { select: { amount: true, dateTransacted: true } },
       milestones: { orderBy: { order: "asc" } },
     },
     orderBy: { startDate: "desc" },
   });
 
-  const formatted = projects.map((project) => ({
-    id: project.id,
-    name: project.name,
-    description: project.description,
-    location: project.location,
-    leadContact: project.leadContact,
-    scopeTier: project.scopeTier,
-    status: project.status,
-    startDate: project.startDate,
-    endDate: project.endDate,
-    targetAmount: Number(project.targetAmount),
-    raisedAmount: project.contributions.reduce((sum, c) => sum + Number(c.amount), 0),
-    milestones: project.milestones.map((m) => ({
-      id: m.id,
-      title: m.title,
-      description: m.description,
-      targetAmount: m.targetAmount !== null ? Number(m.targetAmount) : null,
-      dueDate: m.dueDate,
-      completed: m.completed,
-      completedAt: m.completedAt,
-      order: m.order,
-    })),
-  }));
+  const formatted = projects.map((project) => {
+    const raisedAmount = project.contributions.reduce((sum, c) => sum + Number(c.amount), 0);
+    const targetAmount = Number(project.targetAmount);
+    return {
+      id: project.id,
+      name: project.name,
+      description: project.description,
+      location: project.location,
+      leadContact: project.leadContact,
+      scopeTier: project.scopeTier,
+      status: project.status,
+      startDate: project.startDate,
+      endDate: project.endDate,
+      targetAmount,
+      raisedAmount,
+      velocity: estimateCompletion(
+        project.contributions.map((c) => ({ amount: Number(c.amount), date: c.dateTransacted })),
+        targetAmount,
+        raisedAmount
+      ),
+      milestones: project.milestones.map((m) => ({
+        id: m.id,
+        title: m.title,
+        description: m.description,
+        targetAmount: m.targetAmount !== null ? Number(m.targetAmount) : null,
+        dueDate: m.dueDate,
+        completed: m.completed,
+        completedAt: m.completedAt,
+        order: m.order,
+      })),
+    };
+  });
 
   return NextResponse.json(formatted);
 }

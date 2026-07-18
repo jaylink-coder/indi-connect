@@ -86,6 +86,17 @@ const ROLES: Array<{
     ],
   },
   {
+    name: "Projects Committee",
+    scope: HierarchyTier.PARISH,
+    description:
+      "A dedicated team for parish projects specifically - status, phases, and member pledges - " +
+      "separate from the Chairman/Treasurer, who currently carry this alongside everything else.",
+    grants: [
+      { key: "admin.projects", access: PermissionAccess.EDIT },
+      { key: "admin.rollup", access: PermissionAccess.VIEW },
+    ],
+  },
+  {
     name: "Local Church Chairman",
     scope: HierarchyTier.LOCAL_CHURCH,
     description:

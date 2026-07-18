@@ -228,6 +228,7 @@ model Member {
   expensesSubmitted       Expense[]               @relation("ExpenseSubmitter")
   expensesApproved        Expense[]               @relation("ExpenseApprover")
   expensesPaid            Expense[]               @relation("ExpensePayer")
+  projectAssignments      ProjectAssignment[]
   createdAt               DateTime                @default(now())
 }
 
@@ -492,9 +493,29 @@ model Project {
   milestones     ProjectMilestone[]
   contributions  Contribution[]
   paymentIntents PaymentIntent[]
+  assignments    ProjectAssignment[]
   createdAt      DateTime           @default(now())
 
   @@index([scopeTier, scopeId])
+}
+
+/// One member's personal pledge/quota toward a Project - "how much am I
+/// assigned" on the member dashboard. A leader sets these (individually or
+/// via a bulk equal-split across everyone in the project's own scope);
+/// "paid so far" is never stored here, it's always read live from
+/// Contribution rows linked to this project, same as everywhere else in
+/// this app.
+model ProjectAssignment {
+  id           String   @id @default(uuid())
+  projectId    String
+  project      Project  @relation(fields: [projectId], references: [id])
+  memberId     String
+  member       Member   @relation(fields: [memberId], references: [id])
+  assignedAmount Decimal @db.Decimal(12, 2)
+  createdAt    DateTime @default(now())
+
+  @@unique([projectId, memberId])
+  @@index([memberId])
 }
 
 /// A phase of a Project's implementation plan (Foundation, Walls, Roofing...)

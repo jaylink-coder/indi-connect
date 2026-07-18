@@ -31,6 +31,13 @@ interface Milestone {
   order: number;
 }
 
+interface Velocity {
+  dailyRate: number;
+  daysRemaining: number | null;
+  etaDate: string | null;
+  status: "complete" | "stalled" | "on_track";
+}
+
 interface Project {
   id: string;
   name: string;
@@ -42,6 +49,7 @@ interface Project {
   endDate: string | null;
   targetAmount: number;
   raisedAmount: number;
+  velocity: Velocity;
   milestones: Milestone[];
 }
 
@@ -306,6 +314,7 @@ function ProjectCard({ project, onChanged }: { project: Project; onChanged: () =
   const [error, setError] = useState<string | null>(null);
   const [showMilestones, setShowMilestones] = useState(false);
   const [showAddMilestone, setShowAddMilestone] = useState(false);
+  const [showPledges, setShowPledges] = useState(false);
 
   const pct = project.targetAmount > 0 ? (project.raisedAmount / project.targetAmount) * 100 : 0;
   const completedCount = project.milestones.filter((m) => m.completed).length;
@@ -362,9 +371,21 @@ function ProjectCard({ project, onChanged }: { project: Project; onChanged: () =
         <span>Target: KES {project.targetAmount.toLocaleString()}</span>
       </div>
 
+      {project.velocity.status === "on_track" && project.velocity.etaDate && (
+        <p className="mt-1 text-[10px] text-gray-400">
+          Pace: KES {Math.round(project.velocity.dailyRate).toLocaleString()}/day (last 30 days) - on track for{" "}
+          <span className="font-bold text-gray-600">
+            {new Date(project.velocity.etaDate).toLocaleDateString("en-GB", { month: "long", year: "numeric" })}
+          </span>
+        </p>
+      )}
+      {project.velocity.status === "stalled" && (
+        <p className="mt-1 text-[10px] text-[#B22222]">No giving in the last 30 days - no completion estimate.</p>
+      )}
+
       {error && <p className="mt-2 text-xs text-[#B22222]">{error}</p>}
 
-      <div className="mt-3 border-t border-gray-200 pt-2">
+      <div className="mt-3 flex flex-wrap gap-4 border-t border-gray-200 pt-2">
         <button
           type="button"
           onClick={() => setShowMilestones((v) => !v)}
@@ -373,35 +394,268 @@ function ProjectCard({ project, onChanged }: { project: Project; onChanged: () =
           {showMilestones ? "Hide" : "Show"} Phases
           {project.milestones.length > 0 && ` (${completedCount}/${project.milestones.length} complete)`}
         </button>
+        <button
+          type="button"
+          onClick={() => setShowPledges((v) => !v)}
+          className="text-xs font-bold text-[#024424] hover:underline"
+        >
+          {showPledges ? "Hide" : "Show"} Pledges
+        </button>
+      </div>
 
-        {showMilestones && (
-          <div className="mt-2 space-y-1.5">
-            {project.milestones
-              .slice()
-              .sort((a, b) => a.order - b.order)
-              .map((m) => (
-                <MilestoneRow key={m.id} milestone={m} onChanged={onChanged} />
-              ))}
+      {showMilestones && (
+        <div className="mt-2 space-y-1.5">
+          {project.milestones
+            .slice()
+            .sort((a, b) => a.order - b.order)
+            .map((m) => (
+              <MilestoneRow key={m.id} milestone={m} onChanged={onChanged} />
+            ))}
 
-            {!showAddMilestone && (
-              <button
-                type="button"
-                onClick={() => setShowAddMilestone(true)}
-                className="mt-1 text-xs font-bold text-gray-400 hover:text-gray-600"
-              >
-                + Add Phase
-              </button>
+          {!showAddMilestone && (
+            <button
+              type="button"
+              onClick={() => setShowAddMilestone(true)}
+              className="mt-1 text-xs font-bold text-gray-400 hover:text-gray-600"
+            >
+              + Add Phase
+            </button>
+          )}
+          {showAddMilestone && (
+            <AddMilestoneForm
+              projectId={project.id}
+              onAdded={() => {
+                setShowAddMilestone(false);
+                onChanged();
+              }}
+              onCancel={() => setShowAddMilestone(false)}
+            />
+          )}
+        </div>
+      )}
+
+      {showPledges && <PledgesPanel projectId={project.id} />}
+    </div>
+  );
+}
+
+interface Assignment {
+  id: string;
+  memberId: string;
+  memberName: string;
+  membershipNo: string;
+  assignedAmount: number;
+  paidAmount: number;
+}
+
+interface ScopeMember {
+  id: string;
+  name: string;
+  membershipNo: string;
+}
+
+/**
+ * "How much am I assigned as a member" needs a leader to actually assign
+ * it first - either the same amount to everyone in the project's scope
+ * (a flat harambee quota) or a custom amount per person. Paid-so-far is
+ * never entered here, only ever read live from Contribution rows.
+ */
+function PledgesPanel({ projectId }: { projectId: string }) {
+  const [assignments, setAssignments] = useState<Assignment[] | null>(null);
+  const [scopeMembers, setScopeMembers] = useState<ScopeMember[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [bulkAmount, setBulkAmount] = useState("");
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [search, setSearch] = useState("");
+  const [pickedMember, setPickedMember] = useState<ScopeMember | null>(null);
+  const [individualAmount, setIndividualAmount] = useState("");
+  const [individualBusy, setIndividualBusy] = useState(false);
+
+  const load = () => {
+    fetch(`/api/projects/${projectId}/assignments`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+      .then(setAssignments)
+      .catch(() => setError("Couldn't load pledges."));
+    fetch(`/api/projects/${projectId}/members`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+      .then(setScopeMembers)
+      .catch(() => setScopeMembers([]));
+  };
+
+  useEffect(load, [projectId]);
+
+  const bulkAssign = async () => {
+    const amount = Number(bulkAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError("Enter a valid pledge amount");
+      return;
+    }
+    if (!window.confirm(`Assign KES ${amount.toLocaleString()} to every member in this project's scope? This overwrites any existing individual pledges.`)) {
+      return;
+    }
+    setBulkBusy(true);
+    setError(null);
+    const res = await fetch(`/api/projects/${projectId}/assignments/bulk`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount }),
+    });
+    setBulkBusy(false);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setError(body?.error || "Couldn't bulk-assign pledges");
+      return;
+    }
+    setBulkAmount("");
+    load();
+  };
+
+  const assignIndividual = async () => {
+    const amount = Number(individualAmount);
+    if (!pickedMember) {
+      setError("Pick a member first");
+      return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError("Enter a valid pledge amount");
+      return;
+    }
+    setIndividualBusy(true);
+    setError(null);
+    const res = await fetch(`/api/projects/${projectId}/assignments`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberId: pickedMember.id, amount }),
+    });
+    setIndividualBusy(false);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setError(body?.error || "Couldn't assign pledge");
+      return;
+    }
+    setPickedMember(null);
+    setSearch("");
+    setIndividualAmount("");
+    load();
+  };
+
+  const removeAssignment = async (assignmentId: string) => {
+    if (!window.confirm("Remove this pledge?")) return;
+    await fetch(`/api/projects/assignments/${assignmentId}`, { method: "DELETE" });
+    load();
+  };
+
+  const searchResults =
+    search.trim() && scopeMembers
+      ? scopeMembers
+          .filter((m) => m.name.toLowerCase().includes(search.trim().toLowerCase()) || m.membershipNo.toLowerCase().includes(search.trim().toLowerCase()))
+          .slice(0, 8)
+      : [];
+
+  return (
+    <div className="mt-2 space-y-3 rounded-md border border-gray-200 bg-white p-3">
+      {error && <p className="text-[10px] text-[#B22222]">{error}</p>}
+
+      {!assignments && <p className="text-xs text-gray-400">Loading pledges...</p>}
+      {assignments && assignments.length === 0 && <p className="text-xs text-gray-400">No pledges assigned yet.</p>}
+      {assignments && assignments.length > 0 && (
+        <div className="space-y-1.5">
+          {assignments.map((a) => (
+            <div key={a.id} className="flex items-center justify-between gap-2 rounded-md bg-gray-50 px-3 py-2 text-xs">
+              <div className="min-w-0">
+                <p className="truncate font-semibold text-gray-800">{a.memberName}</p>
+                <p className="font-mono text-[10px] text-gray-400">{a.membershipNo}</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-3 font-mono text-[10px] text-gray-500">
+                <span>Assigned: KES {a.assignedAmount.toLocaleString()}</span>
+                <span className={a.paidAmount >= a.assignedAmount ? "text-green-700" : "text-gray-500"}>
+                  Paid: KES {a.paidAmount.toLocaleString()}
+                </span>
+                <button type="button" onClick={() => removeAssignment(a.id)} className="text-gray-300 hover:text-[#B22222]" aria-label="Remove pledge">
+                  ×
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="border-t border-gray-100 pt-2">
+        <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500">Assign to Everyone in Scope</p>
+        <div className="flex gap-1.5">
+          <input
+            value={bulkAmount}
+            onChange={(e) => setBulkAmount(e.target.value)}
+            type="number"
+            min="1"
+            placeholder="Amount per member (KES)"
+            className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#024424]"
+          />
+          <button
+            type="button"
+            onClick={bulkAssign}
+            disabled={bulkBusy}
+            className="shrink-0 rounded-md bg-[#024424] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#01331a] disabled:opacity-50"
+          >
+            {bulkBusy ? "Assigning..." : "Assign All"}
+          </button>
+        </div>
+      </div>
+
+      <div className="border-t border-gray-100 pt-2">
+        <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-500">Assign to One Person</p>
+        {pickedMember ? (
+          <div className="flex items-center justify-between rounded-md bg-gray-50 px-2 py-1.5 text-xs">
+            <span className="font-semibold text-gray-800">
+              {pickedMember.name} <span className="font-mono text-[10px] text-gray-400">{pickedMember.membershipNo}</span>
+            </span>
+            <button type="button" onClick={() => setPickedMember(null)} className="text-gray-400 hover:text-gray-600">
+              Change
+            </button>
+          </div>
+        ) : (
+          <>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name or Church No..."
+              className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#024424]"
+            />
+            {searchResults.length > 0 && (
+              <div className="mt-1 space-y-0.5">
+                {searchResults.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setPickedMember(m)}
+                    className="flex w-full items-center justify-between rounded-md px-2 py-1 text-left text-xs hover:bg-gray-50"
+                  >
+                    <span className="font-semibold text-gray-800">{m.name}</span>
+                    <span className="font-mono text-[10px] text-gray-400">{m.membershipNo}</span>
+                  </button>
+                ))}
+              </div>
             )}
-            {showAddMilestone && (
-              <AddMilestoneForm
-                projectId={project.id}
-                onAdded={() => {
-                  setShowAddMilestone(false);
-                  onChanged();
-                }}
-                onCancel={() => setShowAddMilestone(false)}
-              />
-            )}
+          </>
+        )}
+        {pickedMember && (
+          <div className="mt-1.5 flex gap-1.5">
+            <input
+              value={individualAmount}
+              onChange={(e) => setIndividualAmount(e.target.value)}
+              type="number"
+              min="1"
+              placeholder="Pledge amount (KES)"
+              className="w-full rounded-md border border-gray-200 px-2 py-1.5 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#024424]"
+            />
+            <button
+              type="button"
+              onClick={assignIndividual}
+              disabled={individualBusy}
+              className="shrink-0 rounded-md bg-[#024424] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#01331a] disabled:opacity-50"
+            >
+              {individualBusy ? "Assigning..." : "Assign"}
+            </button>
           </div>
         )}
       </div>
