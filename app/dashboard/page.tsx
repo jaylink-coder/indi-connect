@@ -5,15 +5,18 @@ import { useRouter } from "next/navigation";
 import { ChurchLogo } from "../components/ChurchLogo";
 import { AdminPadlock } from "@/components/AdminPadlock";
 import { MakePaymentDialog } from "@/components/MakePaymentDialog";
+import { AccountStatementModal } from "@/components/AccountStatementModal";
 import { INDI_CONNECT_CONFIG } from "../config/indi-config";
 import type { AccountSummary } from "@/lib/accounts";
+
+type AccountCategory = "TITHE" | "SADAKA" | "CALL_REGISTRY" | "OPERATIONS";
 
 // Cess Quota gets its own progress-bar treatment below (it's the one
 // category with a real, admin-assigned monthly target) - these four are
 // freewill/collective giving with no personal target to compare against,
 // so they stay as simple totals, just with an honest description of what
 // each one actually is.
-const ACCOUNT_CATEGORIES: { category: "TITHE" | "SADAKA" | "CALL_REGISTRY" | "OPERATIONS"; label: string; description: string }[] = [
+const ACCOUNT_CATEGORIES: { category: AccountCategory; label: string; description: string }[] = [
   { category: "TITHE", label: "Tithe (Zaka)", description: "Your freewill giving, traditionally a tenth of income." },
   { category: "SADAKA", label: "Sadaka", description: "A voluntary offering, given as you're moved to." },
   { category: "CALL_REGISTRY", label: "Call Registry", description: "Weekly payment that doubles as your attendance record." },
@@ -140,6 +143,7 @@ export default function MemberDashboardPage() {
   const [isLeader, setIsLeader] = useState(false);
   const [summary, setSummary] = useState<AccountSummary | null>(null);
   const [loadError, setLoadError] = useState(false);
+  const [openAccount, setOpenAccount] = useState<AccountCategory | null>(null);
 
   const loadSummary = useCallback(() => {
     fetch("/api/member/dashboard-summary")
@@ -196,13 +200,25 @@ export default function MemberDashboardPage() {
 
             <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
               {ACCOUNT_CATEGORIES.map((account) => (
-                <div key={account.category} className="rounded-lg border border-gray-100 bg-gray-50 p-4">
+                <div
+                  key={account.category}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setOpenAccount(account.category)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setOpenAccount(account.category);
+                    }
+                  }}
+                  className="cursor-pointer rounded-lg border border-gray-100 bg-gray-50 p-4 text-left transition-colors hover:border-[#024424]/30 hover:bg-white"
+                >
                   <p className="text-xs font-semibold text-gray-500">{account.label}</p>
                   <p className="mt-1 font-mono text-lg font-black text-[#024424]">
                     KES {(data.byCategory[account.category] ?? 0).toLocaleString()}
                   </p>
                   <p className="mt-1 text-[11px] leading-snug text-gray-400">{account.description}</p>
-                  <div className="mt-3">
+                  <div className="mt-3" onClick={(e) => e.stopPropagation()}>
                     <MakePaymentDialog
                       defaultPhone={data.member.phone}
                       defaultIdentifier={data.member.membershipNo}
@@ -369,6 +385,15 @@ export default function MemberDashboardPage() {
           </div>
         </div>
       </main>
+
+      {openAccount && (
+        <AccountStatementModal
+          category={openAccount}
+          defaultPhone={data.member.phone}
+          defaultIdentifier={data.member.membershipNo}
+          onClose={() => setOpenAccount(null)}
+        />
+      )}
     </div>
   );
 }
